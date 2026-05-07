@@ -57,6 +57,11 @@ const api = {
   getVendorDetails: (id) => request(`/admin/vendor/${id}/details`),
   getNearbyVendors: (lat, lon, category) => request(`/admin/nearby-vendors?lat=${lat}&lon=${lon}${category ? '&category=' + category : ''}`),
   getAllVendors: () => request('/vendors/all'),
+
+  // Notifications
+  getNotifications: () => request('/notifications'),
+  markNotificationRead: (id) => request(`/notifications/${id}/read`, { method: 'PATCH' }),
+  markAllNotificationsRead: () => request('/notifications/read-all', { method: 'PATCH' }),
 };
 
 export default api;

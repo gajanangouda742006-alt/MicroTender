@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { Mail, Lock, User, Phone, Eye, EyeOff, CreditCard } from 'lucide-react';
+import ThemeToggle from '../components/ThemeToggle';
 
 export default function Auth({ mode }) {
   const { login, register } = useAuth();
@@ -24,70 +25,141 @@ export default function Auth({ mode }) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-dark-950 via-dark-900 to-primary-900/30">
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 -left-20 w-72 h-72 bg-primary-600/20 rounded-full blur-3xl animate-float" />
-        <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-accent-600/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '1.5s' }} />
+    <div className="min-h-screen flex items-center justify-center p-4 bg-bg-primary relative overflow-hidden transition-colors duration-500">
+      {/* Theme Toggle in Top Right */}
+      <div className="absolute top-6 right-6 z-50">
+        <ThemeToggle />
       </div>
+
+      {/* Decorative Elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 -left-20 w-72 h-72 bg-secondary-500/10 rounded-full blur-3xl opacity-50" />
+        <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-primary-500/10 rounded-full blur-3xl opacity-50" />
+      </div>
+
       <div className="w-full max-w-md relative z-10 animate-fade-in">
-        <div className="text-center mb-8">
-          <div className="text-5xl mb-3">🏛️</div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-primary-400 to-accent-400 bg-clip-text text-transparent">MicroTender</h1>
-          <p className="text-gray-400 text-sm mt-1">Civic Issue Resolution Platform</p>
+        <div className="text-center mb-10">
+          <div className="text-5xl mb-4 animate-float">🏛️</div>
+          <h1 className="text-4xl font-extrabold text-text-primary tracking-tight">MicroTender</h1>
+          <p className="text-text-tertiary font-bold uppercase tracking-widest text-xs mt-2">Civic Resolution Protocol</p>
         </div>
-        <div className="glass-strong rounded-2xl p-8 shadow-2xl">
-          <h2 className="text-xl font-semibold mb-6 text-center">{mode === 'login' ? 'Sign In' : 'Create Account'}</h2>
-          {error && <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">{error}</div>}
-          <form onSubmit={handleSubmit} className="space-y-4">
+
+        <div className="glass-card p-8 border border-border-primary shadow-2xl bg-surface-primary/80 backdrop-blur-xl">
+          <h2 className="text-2xl font-bold mb-8 text-center text-text-primary">{mode === 'login' ? 'Welcome Back' : 'Create Account'}</h2>
+
+          {error && (
+            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-500 text-sm font-medium animate-shake">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-5">
             {mode === 'register' && (<>
-              <div><label className="text-sm text-gray-400 mb-1 block">Full Name</label>
-                <div className="relative"><User size={16} className="absolute left-3 top-3 text-gray-500" />
-                  <input type="text" value={form.name} onChange={e => set('name', e.target.value)} required placeholder="Enter your full name"
-                    className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-primary-500 outline-none transition" /></div></div>
-              <div><label className="text-sm text-gray-400 mb-1 block">Role</label>
+              <div>
+                <label className="text-xs font-bold text-text-tertiary mb-2 block uppercase tracking-wider ml-1">Full Name</label>
+                <div className="relative group">
+                  <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary group-focus-within:text-secondary-500 transition-colors" />
+                  <input type="text" value={form.name} onChange={e => set('name', e.target.value)} required placeholder="e.g. Rahul Sharma"
+                    className="input-futuristic w-full pl-12" />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-text-tertiary mb-2 block uppercase tracking-wider ml-1">Select Role</label>
                 <div className="grid grid-cols-3 gap-2">
-                  {['citizen','vendor','admin'].map(r=>(
-                    <button key={r} type="button" onClick={()=>set('role',r)} className={`py-2 rounded-xl text-xs font-medium transition-all ${form.role===r?'bg-primary-600 text-white shadow-lg shadow-primary-600/30':'bg-white/5 text-gray-400 hover:bg-white/10'}`}>
-                      {r==='citizen'?'👤 Citizen':r==='vendor'?'🔧 Vendor':'🛡️ Admin'}</button>))}</div></div>
-              <div><label className="text-sm text-gray-400 mb-1 block">Phone</label>
-                <div className="relative"><Phone size={16} className="absolute left-3 top-3 text-gray-500" />
-                  <input type="tel" value={form.phone} onChange={e=>set('phone',e.target.value)} placeholder="Phone number"
-                    className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-primary-500 outline-none transition" /></div></div>
-              {(form.role==='citizen'||form.role==='vendor')&&(
-                <div className="space-y-3 p-3 bg-white/5 rounded-xl border border-white/10">
-                  <label className="text-sm text-gray-300 font-medium flex items-center gap-2"><CreditCard size={14}/>Government ID</label>
+                  {['citizen', 'vendor', 'admin'].map(r => (
+                    <button key={r} type="button" onClick={() => set('role', r)}
+                      className={`py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${form.role === r
+                        ? 'bg-secondary-500 text-white shadow-soft'
+                        : 'bg-bg-secondary text-text-tertiary hover:bg-bg-tertiary border border-border-primary'
+                        }`}>
+                      {r === 'citizen' ? '👤 Citizen' : r === 'vendor' ? '🔧 Vendor' : '🛡️ Admin'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-text-tertiary mb-2 block uppercase tracking-wider ml-1">Phone Number</label>
+                <div className="relative group">
+                  <Phone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary group-focus-within:text-secondary-500 transition-colors" />
+                  <input type="tel" value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="+91 XXXXX XXXXX"
+                    className="input-futuristic w-full pl-12" />
+                </div>
+              </div>
+
+              {(form.role === 'citizen' || form.role === 'vendor') && (
+                <div className="space-y-4 p-5 bg-bg-secondary rounded-2xl border border-border-primary">
+                  <label className="text-xs font-bold text-secondary-500 flex items-center gap-2 uppercase tracking-widest"><CreditCard size={14} />Identity Verification</label>
                   <div className="grid grid-cols-2 gap-2">
-                    {['aadhaar','pan'].map(t=>(
-                      <button key={t} type="button" onClick={()=>set('govt_id_type',t)} className={`py-2 rounded-lg text-xs font-medium transition-all ${form.govt_id_type===t?'bg-primary-600 text-white':'bg-white/5 text-gray-400'}`}>
-                        {t==='aadhaar'?'Aadhaar Card':'PAN Card'}</button>))}
+                    {['aadhaar', 'pan'].map(t => (
+                      <button key={t} type="button" onClick={() => set('govt_id_type', t)}
+                        className={`py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${form.govt_id_type === t
+                          ? 'bg-secondary-500/20 text-secondary-500'
+                          : 'bg-bg-primary text-text-tertiary border border-border-primary'
+                          }`}>
+                        {t === 'aadhaar' ? 'Aadhaar' : 'PAN'}
+                      </button>
+                    ))}
                   </div>
-                  <input type="text" value={form.govt_id_number} onChange={e=>set('govt_id_number',e.target.value)}
-                    className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-primary-500 outline-none transition text-sm"
-                    placeholder={form.govt_id_type==='aadhaar'?'12-digit Aadhaar number':'PAN (e.g. ABCDE1234F)'}/></div>)}
+                  <input type="text" value={form.govt_id_number} onChange={e => set('govt_id_number', e.target.value)}
+                    className="input-futuristic w-full text-xs"
+                    placeholder={form.govt_id_type === 'aadhaar' ? '12-digit Aadhaar number' : 'PAN Number (ABCDE1234F)'} />
+                </div>
+              )}
             </>)}
-            <div><label className="text-sm text-gray-400 mb-1 block">Email</label>
-              <div className="relative"><Mail size={16} className="absolute left-3 top-3 text-gray-500" />
-                <input type="email" value={form.email} onChange={e=>set('email',e.target.value)} required placeholder="your@email.com"
-                  className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-primary-500 outline-none transition" /></div></div>
-            <div><label className="text-sm text-gray-400 mb-1 block">Password</label>
-              <div className="relative"><Lock size={16} className="absolute left-3 top-3 text-gray-500" />
-                <input type={showPass?'text':'password'} value={form.password} onChange={e=>set('password',e.target.value)} required placeholder="••••••••"
-                  className="w-full pl-10 pr-10 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-primary-500 outline-none transition" />
-                <button type="button" onClick={()=>setShowPass(!showPass)} className="absolute right-3 top-3 text-gray-500 hover:text-gray-300">
-                  {showPass?<EyeOff size={16}/>:<Eye size={16}/>}</button></div></div>
+
+            <div>
+              <label className="text-xs font-bold text-text-tertiary mb-2 block uppercase tracking-wider ml-1">Email Address</label>
+              <div className="relative group">
+                <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary group-focus-within:text-secondary-500 transition-colors" />
+                <input type="email" value={form.email} onChange={e => set('email', e.target.value)} required placeholder="your@email.com"
+                  className="input-futuristic w-full pl-12" />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-text-tertiary mb-2 block uppercase tracking-wider ml-1">Secret Password</label>
+              <div className="relative group">
+                <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary group-focus-within:text-secondary-500 transition-colors" />
+                <input type={showPass ? 'text' : 'password'} value={form.password} onChange={e => set('password', e.target.value)} required placeholder="••••••••"
+                  className="input-futuristic w-full pl-12 pr-12" />
+                <button type="button" onClick={() => setShowPass(!showPass)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-secondary-500 transition-colors">
+                  {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </div>
+
             <button type="submit" disabled={loading}
-              className="w-full py-3 bg-gradient-to-r from-primary-600 to-accent-600 hover:from-primary-500 hover:to-accent-500 text-white font-semibold rounded-xl transition-all shadow-lg shadow-primary-600/30 disabled:opacity-50">
-              {loading?'Processing...':mode==='login'?'🔐 Sign In':'🚀 Create Account'}</button>
+              className="w-full py-4 bg-secondary-600 hover:bg-secondary-700 text-white font-extrabold rounded-2xl transition-all shadow-lg active:scale-95 disabled:opacity-50">
+              {loading ? (
+                <div className="flex items-center justify-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  Verifying...
+                </div>
+              ) : mode === 'login' ? '🔐 Secure Sign In' : '🚀 Initialize Account'}
+            </button>
           </form>
-          <div className="mt-6 text-center text-sm text-gray-500">
-            {mode==='login'?<>No account? <Link to="/register" className="text-primary-400 hover:text-primary-300 font-medium">Register</Link></>
-              :<>Have an account? <Link to="/login" className="text-primary-400 hover:text-primary-300 font-medium">Sign In</Link></>}
+
+          <div className="mt-8 text-center text-sm font-medium text-text-tertiary">
+            {mode === 'login' ? (
+              <>Don't have an account? <Link to="/register" className="text-secondary-500 hover:underline font-bold">Create One</Link></>
+            ) : (
+              <>Already have an account? <Link to="/login" className="text-secondary-500 hover:underline font-bold">Sign In</Link></>
+            )}
           </div>
-          {mode==='login'&&(<div className="mt-4 p-3 bg-white/5 rounded-xl text-xs text-gray-500 space-y-1">
-            <p className="font-medium text-gray-400">Demo Credentials:</p>
-            <p>👤 rajesh@gmail.com / password123</p>
-            <p>🔧 vikram@vendor.com / password123</p>
-            <p>🛡️ admin@microtender.gov / password123</p></div>)}
+
+          {mode === 'login' && (
+            <div className="mt-8 p-5 bg-bg-secondary rounded-2xl text-[10px] text-text-tertiary space-y-2 border border-border-primary">
+              <p className="font-extrabold text-secondary-500 uppercase tracking-widest mb-1">Development Access:</p>
+              <div className="grid grid-cols-1 gap-1">
+                <p><span className="font-bold text-text-secondary">Citizen:</span> rajesh@gmail.com / password123</p>
+                <p><span className="font-bold text-text-secondary">Vendor:</span> vikram@vendor.com / password123</p>
+                <p><span className="font-bold text-text-secondary">Admin:</span> admin@microtender.gov / password123</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

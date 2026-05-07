@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
+import { ThemeProvider } from './ThemeContext';
 import Layout from './components/Layout';
 import Auth from './pages/Auth';
 import CitizenDashboard from './pages/CitizenDashboard';
@@ -26,15 +27,18 @@ function RoleRedirect() {
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<Auth mode="login" />} />
-      <Route path="/register" element={<Auth mode="register" />} />
-      <Route path="/" element={<RoleRedirect />} />
-      <Route path="/citizen/*" element={<ProtectedRoute roles={['citizen']}><Layout role="citizen"><CitizenDashboard /></Layout></ProtectedRoute>} />
-      <Route path="/vendor/*" element={<ProtectedRoute roles={['vendor']}><Layout role="vendor"><VendorDashboard /></Layout></ProtectedRoute>} />
-      <Route path="/vendor/tender/:id" element={<ProtectedRoute roles={['vendor']}><Layout role="vendor"><BiddingPage /></Layout></ProtectedRoute>} />
-      <Route path="/admin/*" element={<ProtectedRoute roles={['admin']}><Layout role="admin"><AdminDashboard /></Layout></ProtectedRoute>} />
-      <Route path="*" element={<Navigate to="/" />} />
-    </Routes>
+    <ThemeProvider>
+      <Routes>
+        <Route path="/login" element={<Auth mode="login" />} />
+        <Route path="/register" element={<Auth mode="register" />} />
+        <Route path="/" element={<RoleRedirect />} />
+        <Route path="/citizen/*" element={<ProtectedRoute roles={['citizen']}><Layout role="citizen"><CitizenDashboard /></Layout></ProtectedRoute>} />
+        <Route path="/vendor/*" element={<ProtectedRoute roles={['vendor']}><Layout role="vendor"><VendorDashboard /></Layout></ProtectedRoute>} />
+        <Route path="/vendor/tender/:id" element={<ProtectedRoute roles={['vendor']}><Layout role="vendor"><BiddingPage /></Layout></ProtectedRoute>} />
+        <Route path="/admin/*" element={<ProtectedRoute roles={['admin']}><Layout role="admin"><AdminDashboard /></Layout></ProtectedRoute>} />
+        <Route path="*" element={<Navigate to="/" />} />
+      </Routes>
+    </ThemeProvider>
   );
 }
+

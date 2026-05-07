@@ -34,12 +34,12 @@ export default function MapCluster({ items = [], height = '400px', center = [19.
     items.forEach(item => {
       if (!item.latitude || !item.longitude) return;
 
-      const color = item.status === 'completed' ? '#22c55e' : 
-                    item.status === 'in_progress' ? '#f97316' : 
-                    item.status === 'assigned' ? '#3b82f6' : '#ef4444';
+      const color = item.status === 'completed' ? '#22c55e' :
+        item.status === 'in_progress' ? '#f97316' :
+          item.status === 'assigned' ? '#3b82f6' : '#ef4444';
 
       const icon = L.divIcon({
-        html: `<div style="background-color:${color};width:16px;height:16px;border-radius:50%;border:3px solid white;box-shadow:0 0 10px rgba(0,0,0,0.3)"></div>`,
+        html: `<div style="background-color:${color};width:16px;height:16px;border-radius:50%;border:3px solid rgba(255,255,255,0.3);box-shadow:0 0 10px rgba(0,0,0,0.3)"></div>`,
         iconSize: [16, 16],
         iconAnchor: [8, 8],
         className: ''

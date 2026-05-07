@@ -6,7 +6,8 @@ import api from './api';
 const NotificationContext = createContext();
 
 export function NotificationProvider({ children }) {
-  const { user } = useAuth();
+  const auth = useAuth();
+  const user = auth ? auth.user : null;
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [socket, setSocket] = useState(null);

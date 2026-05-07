@@ -82,7 +82,7 @@ export default function MapPicker({ lat, lng, onLocationSelect, readOnly = false
         </button>
       )}
       {!readOnly && (
-        <p className="text-xs text-gray-500 mt-2">
+        <p className="text-xs text-[#dfe3ff] mt-2">
           📍 {position.lat.toFixed(4)}, {position.lng.toFixed(4)} — Click map or drag pin to set location
         </p>
       )}
