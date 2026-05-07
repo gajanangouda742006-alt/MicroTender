@@ -150,7 +150,9 @@ function Overview() {
             <h2 className="text-xl font-bold text-text-primary flex items-center gap-2">
               <TrendingUp size={20} className="text-accent-cyan" /> Complaint Trends
             </h2>
-            <button onClick={() => setFsChart({ id: 'trend', title: 'Complaint Trends' })} className="p-2 rounded-lg bg-surface-tertiary text-text-tertiary hover:text-accent-cyan lg:opacity-0 group-hover:opacity-100 transition-all shadow-glass"><Maximize2 size={16} /></button>
+            <button onClick={() => setFsChart({ id: 'trend', title: 'Complaint Trends' })} className="p-2 rounded-xl bg-accent-primary/5 text-accent-primary border border-accent-primary/20 hover:bg-accent-primary hover:text-white transition-all duration-300 shadow-sm hover:shadow-indigo-500/40">
+              <Maximize2 size={16} />
+            </button>
           </div>
           <Line data={trendChart()} options={chartOpts} />
         </div>
@@ -159,7 +161,9 @@ function Overview() {
             <h2 className="text-xl font-bold text-text-primary flex items-center gap-2">
               <AlertTriangle size={20} className="text-accent-pink" /> Priority Distribution
             </h2>
-            <button onClick={() => setFsChart({ id: 'prio', title: 'Priority Distribution' })} className="p-2 rounded-lg bg-surface-tertiary text-text-tertiary hover:text-accent-pink lg:opacity-0 group-hover:opacity-100 transition-all shadow-glass"><Maximize2 size={16} /></button>
+            <button onClick={() => setFsChart({ id: 'prio', title: 'Priority Distribution' })} className="p-2 rounded-xl bg-accent-primary/5 text-accent-primary border border-accent-primary/20 hover:bg-accent-primary hover:text-white transition-all duration-300 shadow-sm hover:shadow-indigo-500/40">
+              <Maximize2 size={16} />
+            </button>
           </div>
           <div className="max-w-[200px] mx-auto">
             <Doughnut data={prioChart()} options={{...chartOpts, maintainAspectRatio: true}} />
@@ -171,7 +175,9 @@ function Overview() {
           <h2 className="text-xl font-bold text-text-primary flex items-center gap-2">
             <MapPin size={20} className="text-secondary-400" /> Live Incident Map
           </h2>
-          <button onClick={() => setFsChart({ id: 'map', title: 'Live Incident Analysis Map' })} className="p-2 rounded-lg bg-surface-tertiary text-text-tertiary hover:text-secondary-400 lg:opacity-0 group-hover:opacity-100 transition-all shadow-glass"><Maximize2 size={16} /></button>
+          <button onClick={() => setFsChart({ id: 'map', title: 'Live Incident Analysis Map' })} className="p-2 rounded-xl bg-accent-primary/5 text-accent-primary border border-accent-primary/20 hover:bg-accent-primary hover:text-white transition-all duration-300 shadow-sm hover:shadow-indigo-500/40">
+            <Maximize2 size={16} />
+          </button>
         </div>
         <MapCluster items={allComplaints} height="400px" />
       </div>
@@ -180,7 +186,9 @@ function Overview() {
           <h2 className="text-xl font-bold text-text-primary flex items-center gap-2">
             <BarChart3 size={20} className="text-accent-cyan" /> Complaints by Category
           </h2>
-          <button onClick={() => setFsChart({ id: 'cat', title: 'Category Statistics' })} className="p-2 rounded-lg bg-surface-tertiary text-text-tertiary hover:text-accent-cyan lg:opacity-0 group-hover:opacity-100 transition-all shadow-glass"><Maximize2 size={16} /></button>
+          <button onClick={() => setFsChart({ id: 'cat', title: 'Category Statistics' })} className="p-2 rounded-xl bg-accent-primary/5 text-accent-primary border border-accent-primary/20 hover:bg-accent-primary hover:text-white transition-all duration-300 shadow-sm hover:shadow-indigo-500/40">
+            <Maximize2 size={16} />
+          </button>
         </div>
         <Bar data={catChart()} options={chartOpts} />
       </div>
