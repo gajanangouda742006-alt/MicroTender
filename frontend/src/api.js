@@ -30,6 +30,7 @@ const api = {
   getComplaints: (params = '') => request(`/complaints${params ? '?' + params : ''}`),
   getComplaint: (id) => request(`/complaints/${id}`),
   createComplaint: (formData) => request('/complaints', { method: 'POST', body: formData, headers: {} }),
+  analyzeComplaint: (formData) => request('/complaints/analyze', { method: 'POST', body: formData, headers: {} }),
   rateComplaint: (id, score, feedback) => request(`/complaints/${id}/rate`, { method: 'POST', body: JSON.stringify({ score, feedback }) }),
   getScoreboard: () => request('/complaints/scoreboard/citizens'),
 

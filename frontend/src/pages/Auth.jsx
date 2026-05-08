@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import logo from '../assets/logo.png';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { Mail, Lock, User, Phone, Eye, EyeOff, CreditCard } from 'lucide-react';
@@ -138,7 +139,12 @@ export default function Auth({ mode }) {
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                   Verifying...
                 </div>
-              ) : mode === 'login' ? '🔐 Secure Sign In' : '🚀 Initialize Account'}
+              ) : mode === 'login' ? '🔐 Secure Sign In' : (
+                <div className="flex items-center justify-center gap-2">
+                  <img src={logo} alt="" className="w-5 h-5 object-contain" />
+                  <span>Initialize Account</span>
+                </div>
+              )}
             </button>
           </form>
 

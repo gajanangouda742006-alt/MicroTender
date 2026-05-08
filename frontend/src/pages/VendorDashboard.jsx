@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import logo from '../assets/logo.png';
 import { Link, Routes, Route } from 'react-router-dom';
 import api from '../api';
 import MapPicker from '../components/MapPicker';
@@ -332,7 +333,10 @@ function Profile() {
 
         <button onClick={save} className="btn-primary w-full py-4 text-lg font-bold shadow-soft hover:shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3">
           {isNew ? (
-            <>🚀 Create Business Profile</>
+            <div className="flex items-center gap-2">
+              <img src={logo} alt="" className="w-5 h-5 object-contain" />
+              <span>Create Business Profile</span>
+            </div>
           ) : (
             <>💾 Save Changes</>
           )}

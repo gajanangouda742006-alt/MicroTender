@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
+import logo from '../assets/logo.png';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import api from '../api';
 import MapPicker from '../components/MapPicker';
 import StatusTimeline from '../components/StatusTimeline';
 import { StatusBadge } from '../components/StatusTimeline';
-import { FileText, MapPin, Camera, Send, Star, Trophy, Clock, CheckCircle, AlertTriangle, Briefcase, X } from 'lucide-react';
+import { FileText, MapPin, Camera, Send, Star, Trophy, Clock, CheckCircle, AlertTriangle, Briefcase, X, BrainCircuit, Sparkles, Zap } from 'lucide-react';
+import AIInsightsPanel from '../components/AIInsightsPanel';
+import { motion, AnimatePresence } from 'framer-motion';
 
 function Overview() {
   const { user } = useAuth();
@@ -25,8 +28,8 @@ function Overview() {
   return (
     <div className="animate-fade-in space-y-8">
       <div className="space-y-1">
-        <h1 className="text-3xl font-bold text-text-primary">
-          Welcome, {user?.name} 🚀
+        <h1 className="text-3xl font-bold text-text-primary flex items-center gap-2">
+          Welcome, {user?.name} <img src={logo} alt="" className="w-8 h-8 object-contain" />
         </h1>
         <p className="text-text-secondary text-sm font-medium">Track your civic complaints and contributions to the community</p>
       </div>
@@ -155,10 +158,43 @@ function NewComplaint() {
   const [form, setForm] = useState({ category: 'pothole', description: '', latitude: 19.076, longitude: 72.8777 });
   const [image, setImage] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState(null);
+  const [duplicates, setDuplicates] = useState(null);
   const [result, setResult] = useState(null);
   const [showCamera, setShowCamera] = useState(false);
   const navigate = useNavigate();
   const categories = ['pothole', 'streetlight', 'water_leakage', 'garbage', 'road_damage', 'drainage', 'electrical', 'other'];
+
+  const analysisTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    if (form.description.length > 10 || image) {
+      if (analysisTimeoutRef.current) clearTimeout(analysisTimeoutRef.current);
+      analysisTimeoutRef.current = setTimeout(async () => {
+        setIsAnalyzing(true);
+        try {
+          const fd = new FormData();
+          fd.append('description', form.description);
+          fd.append('latitude', form.latitude);
+          fd.append('longitude', form.longitude);
+          if (image) fd.append('image', image);
+          
+          const data = await api.analyzeComplaint(fd);
+          setAiAnalysis(data.analysis);
+          setDuplicates(data.duplicates);
+          if (data.analysis.category) {
+            setForm(prev => ({ ...prev, category: data.analysis.category }));
+          }
+        } catch (err) {
+          console.error("Analysis error:", err);
+        } finally {
+          setIsAnalyzing(false);
+        }
+      }, 1000);
+    }
+    return () => { if (analysisTimeoutRef.current) clearTimeout(analysisTimeoutRef.current); };
+  }, [form.description, image, form.latitude, form.longitude]);
 
   const submit = async (e) => {
     e.preventDefault(); setLoading(true);
@@ -229,12 +265,32 @@ function NewComplaint() {
               </button>))}
           </div>
         </div>
-        <div className="glass-card p-8 border border-border-primary">
-          <label className="text-xs font-bold text-text-tertiary mb-3 block uppercase tracking-wider">Issue Description</label>
+        <div className="glass-card p-8 border border-border-primary relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-3 opacity-10 group-focus-within:opacity-30 transition-opacity">
+            <BrainCircuit size={80} />
+          </div>
+          <label className="text-xs font-bold text-text-tertiary mb-3 block uppercase tracking-wider flex items-center gap-2">
+            <Zap size={14} className="text-secondary-500" /> Issue Description
+          </label>
           <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} required rows={4}
-            className="input-futuristic w-full text-sm leading-relaxed"
+            className="input-futuristic w-full text-sm leading-relaxed relative z-10 bg-transparent"
             placeholder="Please provide details about the problem (e.g. location details, severity)..." />
         </div>
+
+        {/* AI Insights Section */}
+        <AnimatePresence>
+          {(isAnalyzing || aiAnalysis) && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden"
+            >
+              <AIInsightsPanel analysis={aiAnalysis} duplicates={duplicates} isAnalyzing={isAnalyzing} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <div className="glass-card p-8 border border-border-primary">
           <label className="text-xs font-bold text-text-tertiary mb-4 block flex items-center gap-2 uppercase tracking-wider">
             <Camera size={18} className="text-accent-pink" /> Add Photo Evidence
@@ -416,13 +472,38 @@ function ComplaintDetail() {
               <span className="text-text-primary font-bold text-sm">{new Date(complaint.created_at).toLocaleString()}</span>
             </div>
           </div>
-          {complaint.image_url && (
-            <div className="mt-8">
-              <p className="text-text-tertiary font-bold uppercase tracking-wider text-xs mb-3">Photo Evidence</p>
-              <img src={complaint.image_url} alt="Evidence" className="rounded-2xl w-full max-h-80 object-cover border-2 border-border-primary shadow-soft hover:shadow-lg transition-shadow" />
-            </div>
-          )}
-        </div>
+            {complaint.image_url && (
+              <div className="mt-8">
+                <p className="text-text-tertiary font-bold uppercase tracking-wider text-xs mb-3">Photo Evidence</p>
+                <img src={complaint.image_url} alt="Evidence" className="rounded-2xl w-full max-h-80 object-cover border-2 border-border-primary shadow-soft hover:shadow-lg transition-shadow" />
+              </div>
+            )}
+            
+            {complaint.ai_analysis && (
+              <div className="mt-8 pt-8 border-t border-border-primary">
+                <h3 className="text-sm font-bold text-text-primary mb-4 flex items-center gap-2 uppercase tracking-tight">
+                  <BrainCircuit size={18} className="text-secondary-500" /> AI Verification Details
+                </h3>
+                <div className="bg-bg-secondary/50 rounded-2xl p-6 border border-border-primary space-y-4">
+                  <p className="text-sm text-text-secondary italic font-medium leading-relaxed">
+                    "{JSON.parse(complaint.ai_analysis).aiSummary}"
+                  </p>
+                  <div className="grid grid-cols-2 gap-4 text-xs">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-text-tertiary font-bold uppercase tracking-widest text-[9px]">Department</span>
+                      <span className="text-text-primary font-bold">{complaint.department}</span>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-text-tertiary font-bold uppercase tracking-widest text-[9px]">Risk Level</span>
+                      <span className={`font-bold ${JSON.parse(complaint.ai_analysis).riskLevel === 'high' ? 'text-red-500' : 'text-green-500'}`}>
+                        {JSON.parse(complaint.ai_analysis).riskLevel?.toUpperCase()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         <div className="glass-card p-8 border border-border-primary">
           <h2 className="text-xl font-bold text-text-primary mb-8 flex items-center gap-2 uppercase tracking-tight">
             <Clock size={22} className="text-secondary-500" /> Resolution Timeline

@@ -65,6 +65,24 @@ router.get('/dashboard', (req, res) => {
     const totalManualCost = db.prepare('SELECT SUM(manual_cost) as total FROM micro_tenders WHERE manual_cost IS NOT NULL').get().total || 0;
     const avgBidAmount = db.prepare('SELECT AVG(bid_amount) as avg FROM applications').get().avg || 0;
 
+    // AI-specific analytics
+    const aiComplaints = db.prepare("SELECT ai_analysis FROM complaints WHERE ai_analysis IS NOT NULL").all();
+    const aiData = aiComplaints.map(c => JSON.parse(c.ai_analysis));
+    
+    const avgAiConfidence = aiData.length > 0 
+      ? aiData.reduce((acc, curr) => acc + (curr.confidenceScore || 0), 0) / aiData.length 
+      : 0;
+      
+    const departmentDistribution = aiData.reduce((acc, curr) => {
+      acc[curr.department] = (acc[curr.department] || 0) + 1;
+      return acc;
+    }, {});
+
+    const riskDistribution = aiData.reduce((acc, curr) => {
+      acc[curr.riskLevel] = (acc[curr.riskLevel] || 0) + 1;
+      return acc;
+    }, { low: 0, medium: 0, high: 0 });
+
     // Recent fraud alerts
     const fraudAlerts = db.prepare(`
       SELECT fl.*, u.name as user_name
@@ -85,7 +103,13 @@ router.get('/dashboard', (req, res) => {
       monthlyTrend,
       topVendors,
       costs: { totalEstimatedCost, totalManualCost, avgBidAmount },
-      fraudAlerts
+      fraudAlerts,
+      aiAnalytics: {
+        avgAiConfidence,
+        departmentDistribution,
+        riskDistribution,
+        totalAnalyzed: aiData.length
+      }
     });
   } catch (err) {
     console.error('Dashboard error:', err);

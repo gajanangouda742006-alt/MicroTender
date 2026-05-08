@@ -1,4 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
+import logo from '../assets/logo.png';
 import { useAuth } from '../AuthContext';
 import { LayoutDashboard, FileText, MapPin, User, LogOut, Shield, AlertTriangle, Users, Briefcase, Trophy, ClipboardList, Menu, X } from 'lucide-react';
 import NotificationBell from './NotificationBell';
@@ -59,8 +60,9 @@ export default function Layout({ role, children }) {
           <div className="p-6 border-b border-border-primary">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-accent-pink to-accent-cyan bg-clip-text text-transparent animate-gradient">
-                  🚀 MicroTender
+                <h1 className="flex items-center gap-3 text-2xl font-bold bg-gradient-to-r from-accent-pink to-accent-cyan bg-clip-text text-transparent animate-gradient">
+                  <img src={logo} alt="MT" className="w-10 h-10 object-contain rounded-lg shadow-2xl" />
+                  <span>MicroTender</span>
                 </h1>
                 <p className="text-sm text-text-tertiary mt-1">Civic Issue Resolution</p>
               </div>
@@ -97,7 +99,7 @@ export default function Layout({ role, children }) {
                 className={({ isActive }) =>
                   `flex items-center gap-4 px-4 py-3.5 rounded-2xl text-sm font-bold transition-all duration-300 group ${isActive
                     ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-600/30'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-indigo-600'
+                    : 'text-slate-600 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 hover:text-indigo-600 dark:hover:text-white'
                   }`
                 }
                 onClick={() => setSidebarOpen(false)}
@@ -121,7 +123,7 @@ export default function Layout({ role, children }) {
           {/* Logout */}
           <div className="p-4 border-t border-border-primary">
             <button onClick={handleLogout}
-              className="flex items-center gap-4 px-4 py-3 rounded-xl text-sm font-medium text-text-secondary hover:bg-gradient-secondary/20 hover:text-accent-pink hover:neon-glow-pink transition-all w-full group">
+              className="flex items-center gap-4 px-4 py-3 rounded-xl text-sm font-medium text-text-secondary dark:text-white hover:bg-gradient-secondary/20 hover:text-accent-pink hover:neon-glow-pink transition-all w-full group">
               <LogOut size={20} className="group-hover:rotate-12 transition-transform" />
               <span>Sign Out</span>
             </button>

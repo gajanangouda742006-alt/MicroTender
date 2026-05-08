@@ -4,9 +4,33 @@ const { authenticate, authorize } = require('../middleware/auth');
 const upload = require('../middleware/upload');
 const { runComplaintChecks, updateReputation, validateImageWithAI } = require('../services/antifraud');
 const { estimateCostAI, determinePriority } = require('../services/costEstimation');
+const { analyzeComplaint, detectDuplicates } = require('../services/aiAnalyzer');
 const notifications = require('./notifications');
 
 const router = express.Router();
+
+/**
+ * POST /api/complaints/analyze
+ * Real-time AI analysis (citizen only)
+ */
+router.post('/analyze', authenticate, authorize('citizen'), upload.single('image'), async (req, res) => {
+  try {
+    const { description, latitude, longitude } = req.body;
+    const imageUrl = req.file ? `uploads/${req.file.filename}` : null;
+
+    const analysis = await analyzeComplaint(description || "", imageUrl ? `/${imageUrl}` : null);
+    
+    let duplicates = { isDuplicate: false, matches: [] };
+    if (latitude && longitude) {
+      duplicates = await detectDuplicates(parseFloat(latitude), parseFloat(longitude), analysis.category, description);
+    }
+
+    res.json({ analysis, duplicates });
+  } catch (err) {
+    console.error('Real-time analysis error:', err);
+    res.status(500).json({ error: 'AI analysis failed' });
+  }
+});
 
 /**
  * POST /api/complaints
@@ -37,32 +61,38 @@ router.post('/', authenticate, authorize('citizen'), upload.single('image'), asy
       });
     }
 
-    // 2. AI Image Validation (Background)
-    let aiImageResult = { isValid: true };
-    if (imageUrl) {
-      aiImageResult = await validateImageWithAI(imageUrl, category, description);
-      if (aiImageResult.isValid === false && aiImageResult.confidence > 0.8) {
-        fraudCheck.warnings.push(`AI Alert: ${aiImageResult.issueDetected}`);
-      }
-    }
+    // 2. Comprehensive AI Analysis
+    const aiAnalysis = await analyzeComplaint(description, imageUrl ? `/${imageUrl}` : null);
+    
+    // 3. Duplicate Detection
+    const duplicateCheck = await detectDuplicates(lat, lon, aiAnalysis.category, description);
 
-    // 3. Insert complaint
+    // 4. Insert complaint
     const result = db.prepare(`
-      INSERT INTO complaints (user_id, category, description, latitude, longitude, image_url)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(req.user.user_id, category, description, lat, lon, imageUrl ? `/${imageUrl}` : null);
+      INSERT INTO complaints (user_id, category, description, latitude, longitude, image_url, ai_analysis, department)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      req.user.user_id, 
+      aiAnalysis.category, 
+      description, 
+      lat, 
+      lon, 
+      imageUrl ? `/${imageUrl}` : null,
+      JSON.stringify(aiAnalysis),
+      aiAnalysis.department
+    );
 
     const complaint = db.prepare('SELECT * FROM complaints WHERE complaint_id = ?')
       .get(result.lastInsertRowid);
 
-    // 4. AI-Powered Cost Estimation & Auto-Tender Generation
-    const priority = determinePriority(category, description);
-    const aiEstimate = await estimateCostAI(category, description);
+    // 5. AI-Powered Cost Estimation & Auto-Tender Generation
+    const priority = aiAnalysis.priority || determinePriority(aiAnalysis.category, description);
+    const estimatedCost = aiAnalysis.estimatedCost || (await estimateCostAI(aiAnalysis.category, description)).estimatedCost;
 
     db.prepare(`
       INSERT INTO micro_tenders (complaint_id, estimated_cost, priority)
       VALUES (?, ?, ?)
-    `).run(complaint.complaint_id, aiEstimate.estimatedCost, priority);
+    `).run(complaint.complaint_id, estimatedCost, priority);
 
     // Update complaint status
     db.prepare(`UPDATE complaints SET status = 'tender_created' WHERE complaint_id = ?`)
@@ -73,12 +103,12 @@ router.post('/', authenticate, authorize('citizen'), upload.single('image'), asy
     const tender = db.prepare('SELECT * FROM micro_tenders WHERE complaint_id = ?')
       .get(complaint.complaint_id);
 
-    // 5. Send Notification
+    // 6. Send Notification
     notifications.sendNotification(
       req.app, 
       req.user.user_id, 
       'Complaint Received', 
-      `Your complaint for ${category} has been received and a micro-tender (₹${aiEstimate.estimatedCost}) has been created.`,
+      `Your complaint for ${aiAnalysis.category} has been received and assigned to ${aiAnalysis.department}.`,
       'success'
     );
 
@@ -86,8 +116,8 @@ router.post('/', authenticate, authorize('citizen'), upload.single('image'), asy
       message: 'Complaint submitted and AI micro-tender generated',
       complaint: { ...complaint, status: 'tender_created' },
       tender,
-      aiEstimate,
-      aiImageValidation: aiImageResult,
+      aiAnalysis,
+      duplicates: duplicateCheck,
       fraudWarnings: fraudCheck.warnings
     });
   } catch (err) {

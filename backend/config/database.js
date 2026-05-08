@@ -63,6 +63,8 @@ wrapper.initDatabase = async function () {
       image_url TEXT,
       status TEXT DEFAULT 'pending' CHECK(status IN ('pending','under_review','tender_created','assigned','in_progress','completed','rejected')),
       admin_notes TEXT,
+      ai_analysis TEXT, -- JSON string containing detailed AI insights
+      department TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
