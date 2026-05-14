@@ -7,74 +7,72 @@ const { estimateCost } = require('../services/costEstimation');
 const notifications = require('./notifications');
 
 const router = express.Router();
-
-// All admin routes require admin role
 router.use(authenticate, authorize('admin'));
 
-/**
- * GET /api/admin/dashboard
- * Get dashboard analytics
- */
-router.get('/dashboard', (req, res) => {
+// GET /api/admin/dashboard
+router.get('/dashboard', async (req, res) => {
   try {
-    const totalComplaints = db.prepare('SELECT COUNT(*) as count FROM complaints').get().count;
-    const pendingComplaints = db.prepare("SELECT COUNT(*) as count FROM complaints WHERE status = 'pending'").get().count;
-    const activeComplaints = db.prepare("SELECT COUNT(*) as count FROM complaints WHERE status IN ('tender_created','assigned','in_progress')").get().count;
-    const completedComplaints = db.prepare("SELECT COUNT(*) as count FROM complaints WHERE status = 'completed'").get().count;
+    const [
+      { count: totalComplaints },
+      { count: pendingComplaints },
+      { count: activeComplaints },
+      { count: completedComplaints },
+      { count: totalTenders },
+      { count: openTenders },
+      { count: assignedTenders },
+      { count: completedTenders },
+      { count: totalVendors },
+      { count: totalCitizens },
+      { count: totalApplications },
+    ] = await Promise.all([
+      db.get('SELECT COUNT(*) as count FROM complaints'),
+      db.get("SELECT COUNT(*) as count FROM complaints WHERE status = 'pending'"),
+      db.get("SELECT COUNT(*) as count FROM complaints WHERE status IN ('tender_created','assigned','in_progress')"),
+      db.get("SELECT COUNT(*) as count FROM complaints WHERE status = 'completed'"),
+      db.get('SELECT COUNT(*) as count FROM micro_tenders'),
+      db.get("SELECT COUNT(*) as count FROM micro_tenders WHERE status = 'open'"),
+      db.get("SELECT COUNT(*) as count FROM micro_tenders WHERE status IN ('assigned','in_progress')"),
+      db.get("SELECT COUNT(*) as count FROM micro_tenders WHERE status = 'completed'"),
+      db.get('SELECT COUNT(*) as count FROM vendors'),
+      db.get("SELECT COUNT(*) as count FROM users WHERE role = 'citizen'"),
+      db.get('SELECT COUNT(*) as count FROM applications'),
+    ]);
 
-    const totalTenders = db.prepare('SELECT COUNT(*) as count FROM micro_tenders').get().count;
-    const openTenders = db.prepare("SELECT COUNT(*) as count FROM micro_tenders WHERE status = 'open'").get().count;
-    const assignedTenders = db.prepare("SELECT COUNT(*) as count FROM micro_tenders WHERE status IN ('assigned','in_progress')").get().count;
-    const completedTenders = db.prepare("SELECT COUNT(*) as count FROM micro_tenders WHERE status = 'completed'").get().count;
-
-    const totalVendors = db.prepare('SELECT COUNT(*) as count FROM vendors').get().count;
-    const totalCitizens = db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'citizen'").get().count;
-    const totalApplications = db.prepare('SELECT COUNT(*) as count FROM applications').get().count;
-
-    // Category breakdown
-    const categoryStats = db.prepare(`
+    const categoryStats = await db.all(`
       SELECT category, COUNT(*) as count,
              SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed
       FROM complaints GROUP BY category ORDER BY count DESC
-    `).all();
+    `, []);
 
-    // Priority breakdown
-    const priorityStats = db.prepare(`
-      SELECT priority, COUNT(*) as count FROM micro_tenders GROUP BY priority
-    `).all();
+    const priorityStats = await db.all(
+      'SELECT priority, COUNT(*) as count FROM micro_tenders GROUP BY priority', []
+    );
 
-    // Monthly trend (last 6 months)
-    const monthlyTrend = db.prepare(`
-      SELECT strftime('%Y-%m', created_at) as month, COUNT(*) as count
+    const monthlyTrend = await db.all(`
+      SELECT DATE_FORMAT(created_at, '%Y-%m') as month, COUNT(*) as count
       FROM complaints
-      WHERE created_at > datetime('now', '-6 months')
+      WHERE created_at > DATE_SUB(NOW(), INTERVAL 6 MONTH)
       GROUP BY month ORDER BY month
-    `).all();
+    `, []);
 
-    // Top vendors
-    const topVendors = db.prepare(`
-      SELECT v.vendor_id, v.company_name, v.rating_avg, v.total_jobs_completed,
-             u.name as vendor_name
+    const topVendors = await db.all(`
+      SELECT v.vendor_id, v.company_name, v.rating_avg, v.total_jobs_completed, u.name as vendor_name
       FROM vendors v JOIN users u ON v.user_id = u.user_id
-      ORDER BY v.rating_avg DESC, v.total_jobs_completed DESC
-      LIMIT 10
-    `).all();
+      ORDER BY v.rating_avg DESC, v.total_jobs_completed DESC LIMIT 10
+    `, []);
 
-    // Cost analytics
-    const totalEstimatedCost = db.prepare('SELECT SUM(estimated_cost) as total FROM micro_tenders').get().total || 0;
-    const totalManualCost = db.prepare('SELECT SUM(manual_cost) as total FROM micro_tenders WHERE manual_cost IS NOT NULL').get().total || 0;
-    const avgBidAmount = db.prepare('SELECT AVG(bid_amount) as avg FROM applications').get().avg || 0;
+    const { total: totalEstimatedCost } = await db.get('SELECT COALESCE(SUM(estimated_cost),0) as total FROM micro_tenders');
+    const { total: totalManualCost } = await db.get('SELECT COALESCE(SUM(manual_cost),0) as total FROM micro_tenders WHERE manual_cost IS NOT NULL');
+    const { avg: avgBidAmount } = await db.get('SELECT COALESCE(AVG(bid_amount),0) as avg FROM applications');
 
-    // AI-specific analytics
-    const aiComplaints = db.prepare("SELECT ai_analysis FROM complaints WHERE ai_analysis IS NOT NULL").all();
-    const aiData = aiComplaints.map(c => JSON.parse(c.ai_analysis));
-    
-    const avgAiConfidence = aiData.length > 0 
-      ? aiData.reduce((acc, curr) => acc + (curr.confidenceScore || 0), 0) / aiData.length 
-      : 0;
-      
+    const aiComplaints = await db.all('SELECT ai_analysis FROM complaints WHERE ai_analysis IS NOT NULL', []);
+    const aiData = aiComplaints.map(c => { try { return JSON.parse(c.ai_analysis); } catch(e) { return {}; } });
+
+    const avgAiConfidence = aiData.length > 0
+      ? aiData.reduce((acc, curr) => acc + (curr.confidenceScore || 0), 0) / aiData.length : 0;
+
     const departmentDistribution = aiData.reduce((acc, curr) => {
-      acc[curr.department] = (acc[curr.department] || 0) + 1;
+      if (curr.department) acc[curr.department] = (acc[curr.department] || 0) + 1;
       return acc;
     }, {});
 
@@ -83,14 +81,13 @@ router.get('/dashboard', (req, res) => {
       return acc;
     }, { low: 0, medium: 0, high: 0 });
 
-    // Recent fraud alerts
-    const fraudAlerts = db.prepare(`
+    const fraudAlerts = await db.all(`
       SELECT fl.*, u.name as user_name
       FROM fraud_logs fl
       LEFT JOIN users u ON fl.user_id = u.user_id
       WHERE fl.resolved = 0
       ORDER BY fl.created_at DESC LIMIT 20
-    `).all();
+    `, []);
 
     res.json({
       overview: {
@@ -98,18 +95,10 @@ router.get('/dashboard', (req, res) => {
         totalTenders, openTenders, assignedTenders, completedTenders,
         totalVendors, totalCitizens, totalApplications
       },
-      categoryStats,
-      priorityStats,
-      monthlyTrend,
-      topVendors,
+      categoryStats, priorityStats, monthlyTrend, topVendors,
       costs: { totalEstimatedCost, totalManualCost, avgBidAmount },
       fraudAlerts,
-      aiAnalytics: {
-        avgAiConfidence,
-        departmentDistribution,
-        riskDistribution,
-        totalAnalyzed: aiData.length
-      }
+      aiAnalytics: { avgAiConfidence, departmentDistribution, riskDistribution, totalAnalyzed: aiData.length }
     });
   } catch (err) {
     console.error('Dashboard error:', err);
@@ -117,62 +106,31 @@ router.get('/dashboard', (req, res) => {
   }
 });
 
-/**
- * POST /api/admin/assign-vendor
- * Manually assign a vendor to a tender
- */
-router.post('/assign-vendor', (req, res) => {
+// POST /api/admin/assign-vendor
+router.post('/assign-vendor', async (req, res) => {
   try {
     const { tender_id, vendor_id } = req.body;
-    if (!tender_id || !vendor_id) {
+    if (!tender_id || !vendor_id)
       return res.status(400).json({ error: 'Tender ID and Vendor ID are required.' });
-    }
 
-    const tender = db.prepare('SELECT * FROM micro_tenders WHERE tender_id = ?').get(tender_id);
+    const tender = await db.get('SELECT * FROM micro_tenders WHERE tender_id = ?', [tender_id]);
     if (!tender) return res.status(404).json({ error: 'Tender not found.' });
 
-    const vendor = db.prepare('SELECT * FROM vendors WHERE vendor_id = ?').get(vendor_id);
+    const vendor = await db.get('SELECT * FROM vendors WHERE vendor_id = ?', [vendor_id]);
     if (!vendor) return res.status(404).json({ error: 'Vendor not found.' });
 
-    // Update tender
-    db.prepare(`
-      UPDATE micro_tenders SET assigned_vendor_id = ?, status = 'assigned' WHERE tender_id = ?
-    `).run(vendor_id, tender_id);
+    await db.run("UPDATE micro_tenders SET assigned_vendor_id = ?, status = 'assigned' WHERE tender_id = ?", [vendor_id, tender_id]);
+    await db.run("UPDATE complaints SET status = 'assigned', updated_at = NOW() WHERE complaint_id = ?", [tender.complaint_id]);
+    await db.run("UPDATE applications SET status = 'accepted' WHERE tender_id = ? AND vendor_id = ?", [tender_id, vendor_id]);
+    await db.run("UPDATE applications SET status = 'rejected' WHERE tender_id = ? AND vendor_id != ?", [tender_id, vendor_id]);
 
-    // Update complaint status
-    db.prepare(`
-      UPDATE complaints SET status = 'assigned', updated_at = datetime('now') WHERE complaint_id = ?
-    `).run(tender.complaint_id);
-
-    // Update application status
-    db.prepare(`UPDATE applications SET status = 'accepted' WHERE tender_id = ? AND vendor_id = ?`)
-      .run(tender_id, vendor_id);
-    db.prepare(`UPDATE applications SET status = 'rejected' WHERE tender_id = ? AND vendor_id != ?`)
-      .run(tender_id, vendor_id);
-
-    // Send Notifications
-    const citizen = db.prepare(`
-      SELECT c.user_id, c.category FROM complaints c
-      WHERE c.complaint_id = ?
-    `).get(tender.complaint_id);
-
+    const citizen = await db.get("SELECT c.user_id, c.category FROM complaints c WHERE c.complaint_id = ?", [tender.complaint_id]);
     if (citizen) {
-      notifications.sendNotification(
-        req.app,
-        citizen.user_id,
-        'Vendor Assigned',
-        `A vendor (${vendor.company_name}) has been assigned to resolve your complaint: ${citizen.category}.`,
-        'success'
-      );
+      await notifications.sendNotification(req.app, citizen.user_id, 'Vendor Assigned',
+        `A vendor (${vendor.company_name}) has been assigned to resolve your complaint: ${citizen.category}.`, 'success');
     }
-
-    notifications.sendNotification(
-      req.app,
-      vendor.user_id,
-      'New Job Assigned',
-      `You have been assigned to a new micro-tender for: ${citizen?.category || 'Civic Issue'}.`,
-      'success'
-    );
+    await notifications.sendNotification(req.app, vendor.user_id, 'New Job Assigned',
+      `You have been assigned to a new micro-tender for: ${citizen?.category || 'Civic Issue'}.`, 'success');
 
     res.json({ message: 'Vendor assigned successfully' });
   } catch (err) {
@@ -181,68 +139,49 @@ router.post('/assign-vendor', (req, res) => {
   }
 });
 
-/**
- * POST /api/admin/auto-assign/:tenderId
- * Auto-assign best matching vendor
- */
-router.post('/auto-assign/:tenderId', (req, res) => {
+// POST /api/admin/auto-assign/:tenderId
+router.post('/auto-assign/:tenderId', async (req, res) => {
   try {
-    const tender = db.prepare(`
+    const tender = await db.get(`
       SELECT mt.*, c.latitude, c.longitude, c.category
       FROM micro_tenders mt
       JOIN complaints c ON mt.complaint_id = c.complaint_id
       WHERE mt.tender_id = ?
-    `).get(req.params.tenderId);
+    `, [req.params.tenderId]);
 
     if (!tender) return res.status(404).json({ error: 'Tender not found.' });
-    if (!tender.latitude || !tender.longitude) {
+    if (!tender.latitude || !tender.longitude)
       return res.status(400).json({ error: 'Complaint has no GPS location.' });
-    }
 
-    const topVendors = autoSelectVendors(tender.latitude, tender.longitude, tender.category);
-    if (topVendors.length === 0) {
-      return res.status(404).json({ error: 'No nearby vendors found.' });
-    }
+    const topVendors = await autoSelectVendors(tender.latitude, tender.longitude, tender.category);
+    if (topVendors.length === 0) return res.status(404).json({ error: 'No nearby vendors found.' });
 
     const bestVendor = topVendors[0];
+    await db.run("UPDATE micro_tenders SET assigned_vendor_id = ?, status = 'assigned' WHERE tender_id = ?",
+      [bestVendor.vendor_id, tender.tender_id]);
+    await db.run("UPDATE complaints SET status = 'assigned', updated_at = NOW() WHERE complaint_id = ?",
+      [tender.complaint_id]);
 
-    // Assign
-    db.prepare(`UPDATE micro_tenders SET assigned_vendor_id = ?, status = 'assigned' WHERE tender_id = ?`)
-      .run(bestVendor.vendor_id, tender.tender_id);
-    db.prepare(`UPDATE complaints SET status = 'assigned', updated_at = datetime('now') WHERE complaint_id = ?`)
-      .run(tender.complaint_id);
-
-    res.json({
-      message: 'Auto-assigned to best matching vendor',
-      assignedVendor: bestVendor,
-      candidates: topVendors
-    });
+    res.json({ message: 'Auto-assigned to best matching vendor', assignedVendor: bestVendor, candidates: topVendors });
   } catch (err) {
     console.error('Auto-assign error:', err);
     res.status(500).json({ error: 'Failed to auto-assign.' });
   }
 });
 
-/**
- * PATCH /api/admin/tender/:id/cost
- * Set manual cost and select cost type
- */
-router.patch('/tender/:id/cost', (req, res) => {
+// PATCH /api/admin/tender/:id/cost
+router.patch('/tender/:id/cost', async (req, res) => {
   try {
     const { manual_cost, selected_cost_type } = req.body;
-    const tender = db.prepare('SELECT * FROM micro_tenders WHERE tender_id = ?').get(req.params.id);
+    const tender = await db.get('SELECT * FROM micro_tenders WHERE tender_id = ?', [req.params.id]);
     if (!tender) return res.status(404).json({ error: 'Tender not found.' });
 
-    db.prepare(`
+    await db.run(`
       UPDATE micro_tenders SET
         manual_cost = COALESCE(?, manual_cost),
         selected_cost_type = COALESCE(?, selected_cost_type)
       WHERE tender_id = ?
-    `).run(
-      manual_cost != null ? parseFloat(manual_cost) : null,
-      selected_cost_type || null,
-      tender.tender_id
-    );
+    `, [manual_cost != null ? parseFloat(manual_cost) : null, selected_cost_type || null, tender.tender_id]);
 
     res.json({ message: 'Cost updated' });
   } catch (err) {
@@ -251,44 +190,35 @@ router.patch('/tender/:id/cost', (req, res) => {
   }
 });
 
-/**
- * POST /api/admin/action/:tenderId
- * Admin action on incomplete work
- */
-router.post('/action/:tenderId', (req, res) => {
+// POST /api/admin/action/:tenderId
+router.post('/action/:tenderId', async (req, res) => {
   try {
     const { action, notes } = req.body;
-    const tender = db.prepare('SELECT * FROM micro_tenders WHERE tender_id = ?').get(req.params.tenderId);
+    const tender = await db.get('SELECT * FROM micro_tenders WHERE tender_id = ?', [req.params.tenderId]);
     if (!tender) return res.status(404).json({ error: 'Tender not found.' });
 
     switch (action) {
       case 'reassign':
-        db.prepare(`UPDATE micro_tenders SET assigned_vendor_id = NULL, status = 'open' WHERE tender_id = ?`)
-          .run(tender.tender_id);
-        db.prepare(`UPDATE complaints SET status = 'tender_created', admin_notes = ?, updated_at = datetime('now') WHERE complaint_id = ?`)
-          .run(notes || 'Reassigned by admin', tender.complaint_id);
+        await db.run("UPDATE micro_tenders SET assigned_vendor_id = NULL, status = 'open' WHERE tender_id = ?", [tender.tender_id]);
+        await db.run("UPDATE complaints SET status = 'tender_created', admin_notes = ?, updated_at = NOW() WHERE complaint_id = ?",
+          [notes || 'Reassigned by admin', tender.complaint_id]);
         break;
       case 'cancel':
-        db.prepare(`UPDATE micro_tenders SET status = 'cancelled' WHERE tender_id = ?`)
-          .run(tender.tender_id);
-        db.prepare(`UPDATE complaints SET status = 'rejected', admin_notes = ?, updated_at = datetime('now') WHERE complaint_id = ?`)
-          .run(notes || 'Cancelled by admin', tender.complaint_id);
+        await db.run("UPDATE micro_tenders SET status = 'cancelled' WHERE tender_id = ?", [tender.tender_id]);
+        await db.run("UPDATE complaints SET status = 'rejected', admin_notes = ?, updated_at = NOW() WHERE complaint_id = ?",
+          [notes || 'Cancelled by admin', tender.complaint_id]);
         break;
       case 'warn_vendor':
         if (tender.assigned_vendor_id) {
-          const vendorUser = db.prepare('SELECT user_id FROM vendors WHERE vendor_id = ?').get(tender.assigned_vendor_id);
-          if (vendorUser) {
-            logFraudEvent(vendorUser.user_id, 'admin_warning', notes || 'Admin warning for incomplete work', 'medium');
-          }
+          const vendorUser = await db.get('SELECT user_id FROM vendors WHERE vendor_id = ?', [tender.assigned_vendor_id]);
+          if (vendorUser) await logFraudEvent(vendorUser.user_id, 'admin_warning', notes || 'Admin warning for incomplete work', 'medium');
         }
         break;
       case 'complete':
-        db.prepare(`UPDATE micro_tenders SET status = 'completed' WHERE tender_id = ?`).run(tender.tender_id);
-        db.prepare(`UPDATE complaints SET status = 'completed', updated_at = datetime('now') WHERE complaint_id = ?`)
-          .run(tender.complaint_id);
+        await db.run("UPDATE micro_tenders SET status = 'completed' WHERE tender_id = ?", [tender.tender_id]);
+        await db.run("UPDATE complaints SET status = 'completed', updated_at = NOW() WHERE complaint_id = ?", [tender.complaint_id]);
         if (tender.assigned_vendor_id) {
-          db.prepare('UPDATE vendors SET total_jobs_completed = total_jobs_completed + 1 WHERE vendor_id = ?')
-            .run(tender.assigned_vendor_id);
+          await db.run('UPDATE vendors SET total_jobs_completed = total_jobs_completed + 1 WHERE vendor_id = ?', [tender.assigned_vendor_id]);
         }
         break;
       default:
@@ -302,26 +232,18 @@ router.post('/action/:tenderId', (req, res) => {
   }
 });
 
-/**
- * GET /api/admin/fraud-alerts
- * Get all fraud alerts
- */
-router.get('/fraud-alerts', (req, res) => {
+// GET /api/admin/fraud-alerts
+router.get('/fraud-alerts', async (req, res) => {
   try {
     const { resolved } = req.query;
     let query = `
       SELECT fl.*, u.name as user_name, u.email as user_email, u.role as user_role
-      FROM fraud_logs fl
-      LEFT JOIN users u ON fl.user_id = u.user_id
+      FROM fraud_logs fl LEFT JOIN users u ON fl.user_id = u.user_id
     `;
     const params = [];
-    if (resolved !== undefined) {
-      query += ' WHERE fl.resolved = ?';
-      params.push(resolved === 'true' ? 1 : 0);
-    }
+    if (resolved !== undefined) { query += ' WHERE fl.resolved = ?'; params.push(resolved === 'true' ? 1 : 0); }
     query += ' ORDER BY fl.created_at DESC';
-
-    const alerts = db.prepare(query).all(...params);
+    const alerts = await db.all(query, params);
     res.json({ alerts });
   } catch (err) {
     console.error('Fraud alerts error:', err);
@@ -329,59 +251,45 @@ router.get('/fraud-alerts', (req, res) => {
   }
 });
 
-/**
- * PATCH /api/admin/fraud-alerts/:id/resolve
- */
-router.patch('/fraud-alerts/:id/resolve', (req, res) => {
+// PATCH /api/admin/fraud-alerts/:id/resolve
+router.patch('/fraud-alerts/:id/resolve', async (req, res) => {
   try {
-    db.prepare('UPDATE fraud_logs SET resolved = 1 WHERE log_id = ?').run(req.params.id);
+    await db.run('UPDATE fraud_logs SET resolved = 1 WHERE log_id = ?', [req.params.id]);
     res.json({ message: 'Alert resolved' });
   } catch (err) {
     res.status(500).json({ error: 'Failed to resolve alert.' });
   }
 });
 
-/**
- * GET /api/admin/vendor/:id/details
- * Get detailed vendor info including misuse detection
- */
-router.get('/vendor/:id/details', (req, res) => {
+// GET /api/admin/vendor/:id/details
+router.get('/vendor/:id/details', async (req, res) => {
   try {
-    const vendor = db.prepare(`
-      SELECT v.*, u.name, u.email, u.phone, u.reputation_score, u.is_active,
-             u.govt_id_type, u.govt_id_number
-      FROM vendors v JOIN users u ON v.user_id = u.user_id
-      WHERE v.vendor_id = ?
-    `).get(req.params.id);
-
+    const vendor = await db.get(`
+      SELECT v.*, u.name, u.email, u.phone, u.reputation_score, u.is_active, u.govt_id_type, u.govt_id_number
+      FROM vendors v JOIN users u ON v.user_id = u.user_id WHERE v.vendor_id = ?
+    `, [req.params.id]);
     if (!vendor) return res.status(404).json({ error: 'Vendor not found.' });
 
-    const jobs = db.prepare(`
-      SELECT mt.*, c.category, c.description
-      FROM micro_tenders mt
+    const jobs = await db.all(`
+      SELECT mt.*, c.category, c.description FROM micro_tenders mt
       JOIN complaints c ON mt.complaint_id = c.complaint_id
-      WHERE mt.assigned_vendor_id = ?
-      ORDER BY mt.created_at DESC
-    `).all(vendor.vendor_id);
+      WHERE mt.assigned_vendor_id = ? ORDER BY mt.created_at DESC
+    `, [vendor.vendor_id]);
 
-    const applications = db.prepare(`
-      SELECT a.*, c.category, c.description
-      FROM applications a
+    const applications = await db.all(`
+      SELECT a.*, c.category, c.description FROM applications a
       JOIN micro_tenders mt ON a.tender_id = mt.tender_id
       JOIN complaints c ON mt.complaint_id = c.complaint_id
-      WHERE a.vendor_id = ?
-      ORDER BY a.created_at DESC
-    `).all(vendor.vendor_id);
+      WHERE a.vendor_id = ? ORDER BY a.created_at DESC
+    `, [vendor.vendor_id]);
 
-    const ratings = db.prepare(`
-      SELECT r.*, u.name as citizen_name
-      FROM ratings r JOIN users u ON r.user_id = u.user_id
-      WHERE r.vendor_id = ?
-      ORDER BY r.created_at DESC
-    `).all(vendor.vendor_id);
+    const ratings = await db.all(`
+      SELECT r.*, u.name as citizen_name FROM ratings r
+      JOIN users u ON r.user_id = u.user_id
+      WHERE r.vendor_id = ? ORDER BY r.created_at DESC
+    `, [vendor.vendor_id]);
 
-    const misuseAlerts = detectVendorMisuse(vendor.vendor_id);
-
+    const misuseAlerts = await detectVendorMisuse(vendor.vendor_id);
     res.json({ vendor, jobs, applications, ratings, misuseAlerts });
   } catch (err) {
     console.error('Vendor details error:', err);
@@ -389,19 +297,12 @@ router.get('/vendor/:id/details', (req, res) => {
   }
 });
 
-/**
- * GET /api/admin/nearby-vendors
- * Find vendors near a location
- */
-router.get('/nearby-vendors', (req, res) => {
+// GET /api/admin/nearby-vendors
+router.get('/nearby-vendors', async (req, res) => {
   try {
     const { lat, lon, category, radius } = req.query;
     if (!lat || !lon) return res.status(400).json({ error: 'Latitude and longitude required.' });
-
-    const vendors = findNearbyVendors(
-      parseFloat(lat), parseFloat(lon),
-      category || null, parseFloat(radius) || 5
-    );
+    const vendors = await findNearbyVendors(parseFloat(lat), parseFloat(lon), category || null, parseFloat(radius) || 5);
     res.json({ vendors });
   } catch (err) {
     console.error('Nearby vendors error:', err);

@@ -4,7 +4,6 @@ const fs = require("fs");
 const path = require("path");
 
 // Initialize Gemini
-// Note: In production, use environment variables for API keys
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "AIzaSyDummyKeyForNow");
 
 /**
@@ -39,10 +38,8 @@ async function analyzeComplaint(text, imageUrl = null) {
 
     let result;
     if (imageUrl) {
-      // If image is provided, we use Vision capabilities
-      // Note: imageUrl is relative to backend root, e.g., /uploads/xyz.jpg
       const fullPath = path.join(__dirname, '..', imageUrl.startsWith('/') ? imageUrl.substring(1) : imageUrl);
-      
+
       if (fs.existsSync(fullPath)) {
         const imageData = fs.readFileSync(fullPath);
         const imagePart = {
@@ -66,31 +63,27 @@ async function analyzeComplaint(text, imageUrl = null) {
     return analysis;
   } catch (error) {
     console.error("AI Analysis Error:", error);
-    // Fallback to basic rule-based analysis if AI fails
     return fallbackAnalysis(text);
   }
 }
 
 /**
- * Detect duplicate complaints nearby
+ * Detect duplicate complaints nearby (async MySQL version)
  */
 async function detectDuplicates(lat, lon, category, text) {
   try {
-    // Basic implementation: Find complaints within ~500m of the same category
-    // In a real app, use Geolocation functions or Vector Search
     const radius = 0.005; // Approx 500m
-    const nearby = db.prepare(`
+    const nearby = await db.all(`
       SELECT * FROM complaints 
       WHERE category = ? 
       AND latitude BETWEEN ? AND ? 
       AND longitude BETWEEN ? AND ?
       AND status != 'completed'
       ORDER BY created_at DESC LIMIT 5
-    `).all(category, lat - radius, lat + radius, lon - radius, lon + radius);
+    `, [category, lat - radius, lat + radius, lon - radius, lon + radius]);
 
     if (nearby.length === 0) return { isDuplicate: false, matches: [] };
 
-    // Simple text similarity check (placeholder for embeddings)
     const matches = nearby.map(c => {
       const distance = calculateDistance(lat, lon, c.latitude, c.longitude);
       return {
@@ -112,7 +105,7 @@ async function detectDuplicates(lat, lon, category, text) {
 }
 
 function calculateDistance(lat1, lon1, lat2, lon2) {
-  const R = 6371; // Earth radius in km
+  const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
   const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
@@ -129,21 +122,13 @@ function fallbackAnalysis(text) {
   let cost = 5000;
 
   if (lowerText.includes('pothole') || lowerText.includes('road')) {
-    category = 'pothole';
-    department = 'Public Works';
-    cost = 12000;
+    category = 'pothole'; department = 'Public Works'; cost = 12000;
   } else if (lowerText.includes('light') || lowerText.includes('dark')) {
-    category = 'streetlight';
-    department = 'Electricity Board';
-    cost = 3000;
+    category = 'streetlight'; department = 'Electricity Board'; cost = 3000;
   } else if (lowerText.includes('water') || lowerText.includes('leak')) {
-    category = 'water_leakage';
-    department = 'Water Department';
-    cost = 7000;
+    category = 'water_leakage'; department = 'Water Department'; cost = 7000;
   } else if (lowerText.includes('garbage') || lowerText.includes('waste')) {
-    category = 'garbage';
-    department = 'Sanitation';
-    cost = 2000;
+    category = 'garbage'; department = 'Sanitation'; cost = 2000;
   }
 
   return {
