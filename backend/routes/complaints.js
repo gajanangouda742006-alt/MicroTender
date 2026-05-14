@@ -9,22 +9,16 @@ const notifications = require('./notifications');
 
 const router = express.Router();
 
-/**
- * POST /api/complaints/analyze
- * Real-time AI analysis (citizen only)
- */
+// POST /api/complaints/analyze
 router.post('/analyze', authenticate, authorize('citizen'), upload.single('image'), async (req, res) => {
   try {
     const { description, latitude, longitude } = req.body;
     const imageUrl = req.file ? `uploads/${req.file.filename}` : null;
-
     const analysis = await analyzeComplaint(description || "", imageUrl ? `/${imageUrl}` : null);
-    
     let duplicates = { isDuplicate: false, matches: [] };
     if (latitude && longitude) {
       duplicates = await detectDuplicates(parseFloat(latitude), parseFloat(longitude), analysis.category, description);
     }
-
     res.json({ analysis, duplicates });
   } catch (err) {
     console.error('Real-time analysis error:', err);
@@ -32,93 +26,58 @@ router.post('/analyze', authenticate, authorize('citizen'), upload.single('image
   }
 });
 
-/**
- * POST /api/complaints
- * Submit a new complaint (citizen only)
- */
+// POST /api/complaints
 router.post('/', authenticate, authorize('citizen'), upload.single('image'), async (req, res) => {
   try {
     const { category, description, latitude, longitude, user_lat, user_lon } = req.body;
-
-    if (!category || !description) {
+    if (!category || !description)
       return res.status(400).json({ error: 'Category and description are required.' });
-    }
 
     const lat = parseFloat(latitude) || null;
     const lon = parseFloat(longitude) || null;
     const imageUrl = req.file ? `uploads/${req.file.filename}` : null;
 
-    // 1. Run anti-fraud checks
-    const fraudCheck = runComplaintChecks(
+    const fraudCheck = await runComplaintChecks(
       req.user.user_id, description, lat, lon, imageUrl,
       parseFloat(user_lat) || null, parseFloat(user_lon) || null
     );
-
     if (!fraudCheck.passed) {
-      return res.status(429).json({
-        error: 'Complaint blocked by anti-fraud system',
-        reasons: fraudCheck.blocks
-      });
+      return res.status(429).json({ error: 'Complaint blocked by anti-fraud system', reasons: fraudCheck.blocks });
     }
 
-    // 2. Comprehensive AI Analysis
     const aiAnalysis = await analyzeComplaint(description, imageUrl ? `/${imageUrl}` : null);
-    
-    // 3. Duplicate Detection
     const duplicateCheck = await detectDuplicates(lat, lon, aiAnalysis.category, description);
 
-    // 4. Insert complaint
-    const result = db.prepare(`
-      INSERT INTO complaints (user_id, category, description, latitude, longitude, image_url, ai_analysis, department)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      req.user.user_id, 
-      aiAnalysis.category, 
-      description, 
-      lat, 
-      lon, 
-      imageUrl ? `/${imageUrl}` : null,
-      JSON.stringify(aiAnalysis),
-      aiAnalysis.department
+    const result = await db.run(
+      'INSERT INTO complaints (user_id, category, description, latitude, longitude, image_url, ai_analysis, department) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [req.user.user_id, aiAnalysis.category, description, lat, lon,
+        imageUrl ? `/${imageUrl}` : null, JSON.stringify(aiAnalysis), aiAnalysis.department]
     );
 
-    const complaint = db.prepare('SELECT * FROM complaints WHERE complaint_id = ?')
-      .get(result.lastInsertRowid);
+    const complaint = await db.get('SELECT * FROM complaints WHERE complaint_id = ?', [result.insertId]);
 
-    // 5. AI-Powered Cost Estimation & Auto-Tender Generation
     const priority = aiAnalysis.priority || determinePriority(aiAnalysis.category, description);
     const estimatedCost = aiAnalysis.estimatedCost || (await estimateCostAI(aiAnalysis.category, description)).estimatedCost;
 
-    db.prepare(`
-      INSERT INTO micro_tenders (complaint_id, estimated_cost, priority)
-      VALUES (?, ?, ?)
-    `).run(complaint.complaint_id, estimatedCost, priority);
+    await db.run(
+      'INSERT INTO micro_tenders (complaint_id, estimated_cost, priority) VALUES (?, ?, ?)',
+      [complaint.complaint_id, estimatedCost, priority]
+    );
 
-    // Update complaint status
-    db.prepare(`UPDATE complaints SET status = 'tender_created' WHERE complaint_id = ?`)
-      .run(complaint.complaint_id);
+    await db.run("UPDATE complaints SET status = 'tender_created' WHERE complaint_id = ?", [complaint.complaint_id]);
+    await updateReputation(req.user.user_id, 'valid_complaint');
 
-    updateReputation(req.user.user_id, 'valid_complaint');
+    const tender = await db.get('SELECT * FROM micro_tenders WHERE complaint_id = ?', [complaint.complaint_id]);
 
-    const tender = db.prepare('SELECT * FROM micro_tenders WHERE complaint_id = ?')
-      .get(complaint.complaint_id);
-
-    // 6. Send Notification
-    notifications.sendNotification(
-      req.app, 
-      req.user.user_id, 
-      'Complaint Received', 
-      `Your complaint for ${aiAnalysis.category} has been received and assigned to ${aiAnalysis.department}.`,
-      'success'
+    await notifications.sendNotification(
+      req.app, req.user.user_id, 'Complaint Received',
+      `Your complaint for ${aiAnalysis.category} has been received and assigned to ${aiAnalysis.department}.`, 'success'
     );
 
     res.status(201).json({
       message: 'Complaint submitted and AI micro-tender generated',
       complaint: { ...complaint, status: 'tender_created' },
-      tender,
-      aiAnalysis,
-      duplicates: duplicateCheck,
-      fraudWarnings: fraudCheck.warnings
+      tender, aiAnalysis, duplicates: duplicateCheck, fraudWarnings: fraudCheck.warnings
     });
   } catch (err) {
     console.error('Complaint error:', err);
@@ -126,11 +85,8 @@ router.post('/', authenticate, authorize('citizen'), upload.single('image'), asy
   }
 });
 
-/**
- * GET /api/complaints
- * Get complaints (filtered by user role)
- */
-router.get('/', authenticate, (req, res) => {
+// GET /api/complaints
+router.get('/', authenticate, async (req, res) => {
   try {
     const { status, category, page = 1, limit = 20 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
@@ -146,13 +102,11 @@ router.get('/', authenticate, (req, res) => {
 
     if (status) { query += ' AND c.status = ?'; params.push(status); }
     if (category) { query += ' AND c.category = ?'; params.push(category); }
-
     query += ' ORDER BY c.created_at DESC LIMIT ? OFFSET ?';
     params.push(parseInt(limit), offset);
 
-    const complaints = db.prepare(query).all(...params);
+    const complaints = await db.all(query, params);
 
-    // Get total count
     let countQuery = req.user.role === 'citizen'
       ? 'SELECT COUNT(*) as total FROM complaints WHERE user_id = ?'
       : 'SELECT COUNT(*) as total FROM complaints WHERE 1=1';
@@ -160,8 +114,7 @@ router.get('/', authenticate, (req, res) => {
     if (status) { countQuery += ' AND status = ?'; countParams.push(status); }
     if (category) { countQuery += ' AND category = ?'; countParams.push(category); }
 
-    const { total } = db.prepare(countQuery).get(...countParams);
-
+    const { total } = await db.get(countQuery, countParams);
     res.json({ complaints, total, page: parseInt(page), limit: parseInt(limit) });
   } catch (err) {
     console.error('Get complaints error:', err);
@@ -169,107 +122,10 @@ router.get('/', authenticate, (req, res) => {
   }
 });
 
-/**
- * GET /api/complaints/:id
- * Get complaint details with tender and timeline
- */
-router.get('/:id', authenticate, (req, res) => {
+// GET /api/complaints/scoreboard/citizens
+router.get('/scoreboard/citizens', authenticate, async (req, res) => {
   try {
-    const complaint = db.prepare(`
-      SELECT c.*, u.name as citizen_name, u.phone as citizen_phone
-      FROM complaints c JOIN users u ON c.user_id = u.user_id
-      WHERE c.complaint_id = ?
-    `).get(req.params.id);
-
-    if (!complaint) return res.status(404).json({ error: 'Complaint not found.' });
-
-    // Get tender
-    const tender = db.prepare(`
-      SELECT mt.*, v.company_name as vendor_company, u.name as vendor_name
-      FROM micro_tenders mt
-      LEFT JOIN vendors v ON mt.assigned_vendor_id = v.vendor_id
-      LEFT JOIN users u ON v.user_id = u.user_id
-      WHERE mt.complaint_id = ?
-    `).get(complaint.complaint_id);
-
-    // Get applications
-    const applications = db.prepare(`
-      SELECT a.*, v.company_name, u.name as vendor_name, v.rating_avg
-      FROM applications a
-      JOIN vendors v ON a.vendor_id = v.vendor_id
-      JOIN users u ON v.user_id = u.user_id
-      WHERE a.tender_id = ?
-      ORDER BY a.bid_amount ASC
-    `).all(tender?.tender_id || 0);
-
-    // Get rating
-    const rating = db.prepare(`
-      SELECT * FROM ratings WHERE complaint_id = ?
-    `).get(complaint.complaint_id);
-
-    res.json({ complaint, tender, applications, rating });
-  } catch (err) {
-    console.error('Get complaint error:', err);
-    res.status(500).json({ error: 'Failed to get complaint.' });
-  }
-});
-
-/**
- * POST /api/complaints/:id/rate
- * Rate the vendor who completed the work
- */
-router.post('/:id/rate', authenticate, authorize('citizen'), (req, res) => {
-  try {
-    const { score, feedback } = req.body;
-    if (!score || score < 1 || score > 5) {
-      return res.status(400).json({ error: 'Score must be between 1 and 5.' });
-    }
-
-    const complaint = db.prepare('SELECT * FROM complaints WHERE complaint_id = ? AND user_id = ?')
-      .get(req.params.id, req.user.user_id);
-    if (!complaint) return res.status(404).json({ error: 'Complaint not found.' });
-    if (complaint.status !== 'completed') {
-      return res.status(400).json({ error: 'Can only rate completed complaints.' });
-    }
-
-    const tender = db.prepare('SELECT * FROM micro_tenders WHERE complaint_id = ?')
-      .get(complaint.complaint_id);
-    if (!tender?.assigned_vendor_id) {
-      return res.status(400).json({ error: 'No vendor assigned.' });
-    }
-
-    // Check if already rated
-    const existing = db.prepare('SELECT rating_id FROM ratings WHERE complaint_id = ? AND user_id = ?')
-      .get(complaint.complaint_id, req.user.user_id);
-    if (existing) return res.status(409).json({ error: 'Already rated.' });
-
-    db.prepare(`
-      INSERT INTO ratings (vendor_id, complaint_id, user_id, score, feedback)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(tender.assigned_vendor_id, complaint.complaint_id, req.user.user_id, score, feedback || null);
-
-    // Update vendor average rating
-    const avgResult = db.prepare('SELECT AVG(score) as avg, COUNT(*) as count FROM ratings WHERE vendor_id = ?')
-      .get(tender.assigned_vendor_id);
-    db.prepare('UPDATE vendors SET rating_avg = ?, total_ratings = ? WHERE vendor_id = ?')
-      .run(Math.round(avgResult.avg * 10) / 10, avgResult.count, tender.assigned_vendor_id);
-
-    updateReputation(req.user.user_id, score >= 3 ? 'good_rating' : 'bad_rating');
-
-    res.json({ message: 'Rating submitted successfully' });
-  } catch (err) {
-    console.error('Rating error:', err);
-    res.status(500).json({ error: 'Failed to submit rating.' });
-  }
-});
-
-/**
- * GET /api/complaints/scoreboard/citizens
- * Citizen scoreboard
- */
-router.get('/scoreboard/citizens', authenticate, (req, res) => {
-  try {
-    const scoreboard = db.prepare(`
+    const scoreboard = await db.all(`
       SELECT u.user_id, u.name, u.reputation_score,
              COUNT(c.complaint_id) as total_complaints,
              SUM(CASE WHEN c.status = 'completed' THEN 1 ELSE 0 END) as resolved_complaints
@@ -279,12 +135,87 @@ router.get('/scoreboard/citizens', authenticate, (req, res) => {
       GROUP BY u.user_id
       ORDER BY u.reputation_score DESC, resolved_complaints DESC
       LIMIT 50
-    `).all();
-
+    `, []);
     res.json({ scoreboard });
   } catch (err) {
     console.error('Scoreboard error:', err);
     res.status(500).json({ error: 'Failed to get scoreboard.' });
+  }
+});
+
+// GET /api/complaints/:id
+router.get('/:id', authenticate, async (req, res) => {
+  try {
+    const complaint = await db.get(`
+      SELECT c.*, u.name as citizen_name, u.phone as citizen_phone
+      FROM complaints c JOIN users u ON c.user_id = u.user_id
+      WHERE c.complaint_id = ?
+    `, [req.params.id]);
+    if (!complaint) return res.status(404).json({ error: 'Complaint not found.' });
+
+    const tender = await db.get(`
+      SELECT mt.*, v.company_name as vendor_company, u.name as vendor_name
+      FROM micro_tenders mt
+      LEFT JOIN vendors v ON mt.assigned_vendor_id = v.vendor_id
+      LEFT JOIN users u ON v.user_id = u.user_id
+      WHERE mt.complaint_id = ?
+    `, [complaint.complaint_id]);
+
+    const applications = await db.all(`
+      SELECT a.*, v.company_name, u.name as vendor_name, v.rating_avg
+      FROM applications a
+      JOIN vendors v ON a.vendor_id = v.vendor_id
+      JOIN users u ON v.user_id = u.user_id
+      WHERE a.tender_id = ?
+      ORDER BY a.bid_amount ASC
+    `, [tender?.tender_id || 0]);
+
+    const rating = await db.get('SELECT * FROM ratings WHERE complaint_id = ?', [complaint.complaint_id]);
+    res.json({ complaint, tender, applications, rating });
+  } catch (err) {
+    console.error('Get complaint error:', err);
+    res.status(500).json({ error: 'Failed to get complaint.' });
+  }
+});
+
+// POST /api/complaints/:id/rate
+router.post('/:id/rate', authenticate, authorize('citizen'), async (req, res) => {
+  try {
+    const { score, feedback } = req.body;
+    if (!score || score < 1 || score > 5)
+      return res.status(400).json({ error: 'Score must be between 1 and 5.' });
+
+    const complaint = await db.get(
+      'SELECT * FROM complaints WHERE complaint_id = ? AND user_id = ?',
+      [req.params.id, req.user.user_id]
+    );
+    if (!complaint) return res.status(404).json({ error: 'Complaint not found.' });
+    if (complaint.status !== 'completed')
+      return res.status(400).json({ error: 'Can only rate completed complaints.' });
+
+    const tender = await db.get('SELECT * FROM micro_tenders WHERE complaint_id = ?', [complaint.complaint_id]);
+    if (!tender?.assigned_vendor_id) return res.status(400).json({ error: 'No vendor assigned.' });
+
+    const existing = await db.get(
+      'SELECT rating_id FROM ratings WHERE complaint_id = ? AND user_id = ?',
+      [complaint.complaint_id, req.user.user_id]
+    );
+    if (existing) return res.status(409).json({ error: 'Already rated.' });
+
+    await db.run(
+      'INSERT INTO ratings (vendor_id, complaint_id, user_id, score, feedback) VALUES (?, ?, ?, ?, ?)',
+      [tender.assigned_vendor_id, complaint.complaint_id, req.user.user_id, score, feedback || null]
+    );
+
+    const avgResult = await db.get('SELECT AVG(score) as avg, COUNT(*) as count FROM ratings WHERE vendor_id = ?', [tender.assigned_vendor_id]);
+    await db.run('UPDATE vendors SET rating_avg = ?, total_ratings = ? WHERE vendor_id = ?',
+      [Math.round(avgResult.avg * 10) / 10, avgResult.count, tender.assigned_vendor_id]);
+
+    await updateReputation(req.user.user_id, score >= 3 ? 'good_rating' : 'bad_rating');
+    res.json({ message: 'Rating submitted successfully' });
+  } catch (err) {
+    console.error('Rating error:', err);
+    res.status(500).json({ error: 'Failed to submit rating.' });
   }
 });
 

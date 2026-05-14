@@ -1,275 +1,231 @@
 /**
- * Database Module - sql.js wrapper with better-sqlite3 compatible API
- * Uses sql.js (pure JavaScript SQLite) for zero-dependency installation.
- * Provides .prepare().run/get/all() API matching better-sqlite3.
+ * Database Module - MySQL (mysql2/promise) connection pool
+ * Replaces the former sql.js (SQLite) wrapper.
+ * All methods are async.
  */
-const path = require('path');
-const fs = require('fs');
+const mysql = require('mysql2/promise');
+require('dotenv').config();
 
-const DB_PATH = path.join(__dirname, '..', 'data', 'microtender.db');
-const dataDir = path.dirname(DB_PATH);
+let pool = null;
 
-let rawDb = null;
-let saveTimer = null;
-
-// The wrapper object - this is what gets exported and used by all routes
-const wrapper = {};
+const db = {};
 
 /**
- * Initialize the database (must be called before server starts)
+ * Initialize MySQL connection pool and create schema
  */
-wrapper.initDatabase = async function () {
-  const initSqlJs = require('sql.js');
-  const SQL = await initSqlJs();
+db.initDatabase = async function () {
+  pool = mysql.createPool({
+    host: process.env.DB_HOST || 'localhost',
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'micro_tender_db',
+    port: parseInt(process.env.DB_PORT) || 3306,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0,
+    multipleStatements: true
+  });
 
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-  }
-
-  if (fs.existsSync(DB_PATH)) {
-    const buffer = fs.readFileSync(DB_PATH);
-    rawDb = new SQL.Database(buffer);
-  } else {
-    rawDb = new SQL.Database();
-  }
-
-  rawDb.run('PRAGMA foreign_keys = ON');
+  // Test connection
+  const conn = await pool.getConnection();
+  console.log('✅ MySQL connected successfully');
+  conn.release();
 
   // Create schema
-  rawDb.exec(`
+  await pool.execute(`
     CREATE TABLE IF NOT EXISTS users (
-      user_id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      email TEXT UNIQUE NOT NULL,
-      phone TEXT,
+      user_id INT PRIMARY KEY AUTO_INCREMENT,
+      name VARCHAR(255) NOT NULL,
+      email VARCHAR(255) UNIQUE NOT NULL,
+      phone VARCHAR(20),
       password TEXT NOT NULL,
-      role TEXT CHECK(role IN ('citizen', 'vendor', 'admin')) NOT NULL DEFAULT 'citizen',
-      govt_id_type TEXT,
-      govt_id_number TEXT,
-      otp_code TEXT,
-      otp_expires_at TEXT,
-      reputation_score REAL DEFAULT 100.0,
-      is_active INTEGER DEFAULT 1,
-      created_at TEXT DEFAULT (datetime('now'))
-    );
+      role ENUM('citizen', 'vendor', 'admin') NOT NULL DEFAULT 'citizen',
+      govt_id_type VARCHAR(50),
+      govt_id_number VARCHAR(100),
+      otp_code VARCHAR(10),
+      otp_expires_at DATETIME,
+      reputation_score DOUBLE DEFAULT 100.0,
+      is_active TINYINT(1) DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
 
+  await pool.execute(`
     CREATE TABLE IF NOT EXISTS complaints (
-      complaint_id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      category TEXT NOT NULL,
+      complaint_id INT PRIMARY KEY AUTO_INCREMENT,
+      user_id INT NOT NULL,
+      category VARCHAR(100) NOT NULL,
       description TEXT NOT NULL,
-      latitude REAL,
-      longitude REAL,
+      latitude DOUBLE,
+      longitude DOUBLE,
       image_url TEXT,
-      status TEXT DEFAULT 'pending' CHECK(status IN ('pending','under_review','tender_created','assigned','in_progress','completed','rejected')),
+      status ENUM('pending','under_review','tender_created','assigned','in_progress','completed','rejected') DEFAULT 'pending',
       admin_notes TEXT,
-      ai_analysis TEXT, -- JSON string containing detailed AI insights
-      department TEXT,
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now')),
+      ai_analysis LONGTEXT,
+      department VARCHAR(255),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
-    );
+    )
+  `);
 
+  await pool.execute(`
     CREATE TABLE IF NOT EXISTS micro_tenders (
-      tender_id INTEGER PRIMARY KEY AUTOINCREMENT,
-      complaint_id INTEGER NOT NULL UNIQUE,
-      estimated_cost REAL,
-      manual_cost REAL,
-      selected_cost_type TEXT DEFAULT 'ai' CHECK(selected_cost_type IN ('ai', 'manual')),
-      priority TEXT DEFAULT 'medium' CHECK(priority IN ('low','medium','high','critical')),
-      status TEXT DEFAULT 'open' CHECK(status IN ('open','assigned','in_progress','completed','cancelled')),
-      assigned_vendor_id INTEGER,
-      deadline TEXT,
-      created_at TEXT DEFAULT (datetime('now')),
+      tender_id INT PRIMARY KEY AUTO_INCREMENT,
+      complaint_id INT NOT NULL UNIQUE,
+      estimated_cost DOUBLE,
+      manual_cost DOUBLE,
+      selected_cost_type ENUM('ai', 'manual') DEFAULT 'ai',
+      priority ENUM('low','medium','high','critical') DEFAULT 'medium',
+      status ENUM('open','assigned','in_progress','completed','cancelled') DEFAULT 'open',
+      assigned_vendor_id INT,
+      deadline DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (complaint_id) REFERENCES complaints(complaint_id) ON DELETE CASCADE
-    );
+    )
+  `);
 
+  await pool.execute(`
     CREATE TABLE IF NOT EXISTS vendors (
-      vendor_id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL UNIQUE,
-      company_name TEXT,
-      category TEXT,
-      skills TEXT DEFAULT '[]',
-      latitude REAL,
-      longitude REAL,
+      vendor_id INT PRIMARY KEY AUTO_INCREMENT,
+      user_id INT NOT NULL UNIQUE,
+      company_name VARCHAR(255),
+      category VARCHAR(100),
+      skills TEXT,
+      latitude DOUBLE,
+      longitude DOUBLE,
       address TEXT,
-      experience_years INTEGER DEFAULT 0,
-      rating_avg REAL DEFAULT 0.0,
-      total_ratings INTEGER DEFAULT 0,
-      total_jobs_completed INTEGER DEFAULT 0,
-      is_available INTEGER DEFAULT 1,
-      created_at TEXT DEFAULT (datetime('now')),
+      experience_years INT DEFAULT 0,
+      rating_avg DOUBLE DEFAULT 0.0,
+      total_ratings INT DEFAULT 0,
+      total_jobs_completed INT DEFAULT 0,
+      is_available TINYINT(1) DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
-    );
+    )
+  `);
 
+  await pool.execute(`
     CREATE TABLE IF NOT EXISTS applications (
-      application_id INTEGER PRIMARY KEY AUTOINCREMENT,
-      tender_id INTEGER NOT NULL,
-      vendor_id INTEGER NOT NULL,
-      bid_amount REAL NOT NULL,
+      application_id INT PRIMARY KEY AUTO_INCREMENT,
+      tender_id INT NOT NULL,
+      vendor_id INT NOT NULL,
+      bid_amount DOUBLE NOT NULL,
       proposal TEXT,
-      status TEXT DEFAULT 'pending' CHECK(status IN ('pending','accepted','rejected')),
-      created_at TEXT DEFAULT (datetime('now')),
+      status ENUM('pending','accepted','rejected') DEFAULT 'pending',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (tender_id) REFERENCES micro_tenders(tender_id) ON DELETE CASCADE,
       FOREIGN KEY (vendor_id) REFERENCES vendors(vendor_id) ON DELETE CASCADE,
-      UNIQUE(tender_id, vendor_id)
-    );
+      UNIQUE KEY uq_tender_vendor (tender_id, vendor_id)
+    )
+  `);
 
+  await pool.execute(`
     CREATE TABLE IF NOT EXISTS ratings (
-      rating_id INTEGER PRIMARY KEY AUTOINCREMENT,
-      vendor_id INTEGER NOT NULL,
-      complaint_id INTEGER NOT NULL,
-      user_id INTEGER NOT NULL,
-      score INTEGER CHECK(score >= 1 AND score <= 5) NOT NULL,
+      rating_id INT PRIMARY KEY AUTO_INCREMENT,
+      vendor_id INT NOT NULL,
+      complaint_id INT NOT NULL,
+      user_id INT NOT NULL,
+      score INT NOT NULL CHECK (score >= 1 AND score <= 5),
       feedback TEXT,
-      created_at TEXT DEFAULT (datetime('now')),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (vendor_id) REFERENCES vendors(vendor_id) ON DELETE CASCADE,
       FOREIGN KEY (complaint_id) REFERENCES complaints(complaint_id) ON DELETE CASCADE,
       FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
-      UNIQUE(complaint_id, user_id)
-    );
-
-    CREATE TABLE IF NOT EXISTS fraud_logs (
-      log_id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER,
-      type TEXT NOT NULL,
-      description TEXT,
-      severity TEXT DEFAULT 'low' CHECK(severity IN ('low','medium','high','critical')),
-      resolved INTEGER DEFAULT 0,
-      created_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE SET NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS notifications (
-      notification_id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      title TEXT NOT NULL,
-      message TEXT NOT NULL,
-      type TEXT DEFAULT 'info',
-      is_read INTEGER DEFAULT 0,
-      created_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
-    );
+      UNIQUE KEY uq_complaint_user (complaint_id, user_id)
+    )
   `);
 
-  // Create indexes (ignore errors if they exist)
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS fraud_logs (
+      log_id INT PRIMARY KEY AUTO_INCREMENT,
+      user_id INT,
+      type VARCHAR(100) NOT NULL,
+      description TEXT,
+      severity ENUM('low','medium','high','critical') DEFAULT 'low',
+      resolved TINYINT(1) DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE SET NULL
+    )
+  `);
+
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS notifications (
+      notification_id INT PRIMARY KEY AUTO_INCREMENT,
+      user_id INT NOT NULL,
+      title VARCHAR(255) NOT NULL,
+      message TEXT NOT NULL,
+      type VARCHAR(50) DEFAULT 'info',
+      is_read TINYINT(1) DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+    )
+  `);
+
+  // Indexes (ignore if already exist)
   const indexes = [
-    'CREATE INDEX IF NOT EXISTS idx_complaints_user ON complaints(user_id)',
-    'CREATE INDEX IF NOT EXISTS idx_complaints_status ON complaints(status)',
-    'CREATE INDEX IF NOT EXISTS idx_complaints_category ON complaints(category)',
-    'CREATE INDEX IF NOT EXISTS idx_tenders_status ON micro_tenders(status)',
-    'CREATE INDEX IF NOT EXISTS idx_tenders_complaint ON micro_tenders(complaint_id)',
-    'CREATE INDEX IF NOT EXISTS idx_vendors_user ON vendors(user_id)',
-    'CREATE INDEX IF NOT EXISTS idx_vendors_category ON vendors(category)',
-    'CREATE INDEX IF NOT EXISTS idx_applications_tender ON applications(tender_id)',
-    'CREATE INDEX IF NOT EXISTS idx_applications_vendor ON applications(vendor_id)',
-    'CREATE INDEX IF NOT EXISTS idx_ratings_vendor ON ratings(vendor_id)',
-    'CREATE INDEX IF NOT EXISTS idx_fraud_user ON fraud_logs(user_id)',
-    'CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id)',
-    'CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(is_read)',
+    `CREATE INDEX idx_complaints_user ON complaints(user_id)`,
+    `CREATE INDEX idx_complaints_status ON complaints(status)`,
+    `CREATE INDEX idx_complaints_category ON complaints(category)`,
+    `CREATE INDEX idx_tenders_status ON micro_tenders(status)`,
+    `CREATE INDEX idx_tenders_complaint ON micro_tenders(complaint_id)`,
+    `CREATE INDEX idx_vendors_user ON vendors(user_id)`,
+    `CREATE INDEX idx_vendors_category ON vendors(category)`,
+    `CREATE INDEX idx_applications_tender ON applications(tender_id)`,
+    `CREATE INDEX idx_applications_vendor ON applications(vendor_id)`,
+    `CREATE INDEX idx_ratings_vendor ON ratings(vendor_id)`,
+    `CREATE INDEX idx_fraud_user ON fraud_logs(user_id)`,
+    `CREATE INDEX idx_notifications_user ON notifications(user_id)`,
+    `CREATE INDEX idx_notifications_read ON notifications(is_read)`,
   ];
   for (const idx of indexes) {
-    try { rawDb.run(idx); } catch (e) { /* ignore */ }
+    try { await pool.execute(idx); } catch (e) { /* ignore duplicate index errors */ }
   }
 
-  // Attach wrapper methods
-  _attachMethods();
-
-  // Auto-save every 3 seconds
-  saveTimer = setInterval(() => wrapper.save(), 3000);
-
-  console.log('✅ Database initialized');
-  return wrapper;
+  console.log('✅ Database schema ready (MySQL)');
+  return db;
 };
 
 /**
- * Save database to disk
+ * Execute a query returning a single row (or undefined)
  */
-wrapper.save = function () {
-  if (!rawDb) return;
-  try {
-    const data = rawDb.export();
-    const buffer = Buffer.from(data);
-    fs.writeFileSync(DB_PATH, buffer);
-  } catch (e) {
-    console.error('DB save error:', e.message);
-  }
+db.get = async function (sql, params = []) {
+  const [rows] = await pool.execute(sql, params);
+  return rows[0];
 };
 
-function _attachMethods() {
-  /**
-   * Prepare a SQL statement - returns object with run/get/all methods
-   * Compatible with better-sqlite3 API
-   */
-  wrapper.prepare = function (sql) {
-    return {
-      run: function (...params) {
-        try {
-          if (params.length > 0) {
-            rawDb.run(sql, params);
-          } else {
-            rawDb.run(sql);
-          }
-          const res = rawDb.exec('SELECT last_insert_rowid() as id, changes() as ch');
-          const lastInsertRowid = res.length > 0 ? res[0].values[0][0] : 0;
-          const changes = res.length > 0 ? res[0].values[0][1] : 0;
-          wrapper.save(); // save after writes
-          return { lastInsertRowid, changes };
-        } catch (e) {
-          console.error('DB run error:', sql, params, e.message);
-          throw e;
-        }
-      },
-      get: function (...params) {
-        let stmt;
-        try {
-          stmt = rawDb.prepare(sql);
-          if (params.length > 0) stmt.bind(params);
-          if (stmt.step()) {
-            const row = stmt.getAsObject();
-            stmt.free();
-            return row;
-          }
-          stmt.free();
-          return undefined;
-        } catch (e) {
-          if (stmt) try { stmt.free(); } catch (_) {}
-          console.error('DB get error:', sql, params, e.message);
-          throw e;
-        }
-      },
-      all: function (...params) {
-        let stmt;
-        try {
-          stmt = rawDb.prepare(sql);
-          if (params.length > 0) stmt.bind(params);
-          const results = [];
-          while (stmt.step()) {
-            results.push(stmt.getAsObject());
-          }
-          stmt.free();
-          return results;
-        } catch (e) {
-          if (stmt) try { stmt.free(); } catch (_) {}
-          console.error('DB all error:', sql, params, e.message);
-          throw e;
-        }
-      }
-    };
-  };
+/**
+ * Execute a query returning all rows
+ */
+db.all = async function (sql, params = []) {
+  const [rows] = await pool.execute(sql, params);
+  return rows;
+};
 
-  /**
-   * Execute raw SQL (multi-statement support)
-   */
-  wrapper.exec = function (sql) {
-    rawDb.exec(sql);
-    wrapper.save();
-  };
+/**
+ * Execute a write query (INSERT, UPDATE, DELETE)
+ * Returns { insertId, affectedRows }
+ */
+db.run = async function (sql, params = []) {
+  const [result] = await pool.execute(sql, params);
+  return { insertId: result.insertId, affectedRows: result.affectedRows };
+};
 
-  /**
-   * No-op pragma (sql.js handles differently)
-   */
-  wrapper.pragma = function () {};
-}
+/**
+ * Execute raw SQL (for multi-statement admin use)
+ */
+db.exec = async function (sql) {
+  await pool.query(sql);
+};
 
-module.exports = wrapper;
+/**
+ * No-op: MySQL auto-persists, no manual save needed
+ */
+db.save = function () {};
+
+/**
+ * Get the raw pool (for transactions if needed in future)
+ */
+db.getPool = function () { return pool; };
+
+module.exports = db;

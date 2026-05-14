@@ -28,14 +28,9 @@ function haversineDistance(lat1, lon1, lat2, lon2) {
 
 /**
  * Find vendors within a given radius of a location
- * @param {number} lat - Complaint latitude
- * @param {number} lon - Complaint longitude
- * @param {string} category - Complaint category
- * @param {number} radiusKm - Search radius in km (default: 5)
- * @returns {Array} Ranked list of nearby vendors
  */
-function findNearbyVendors(lat, lon, category = null, radiusKm = DEFAULT_RADIUS_KM) {
-  let query = `
+async function findNearbyVendors(lat, lon, category = null, radiusKm = DEFAULT_RADIUS_KM) {
+  let sql = `
     SELECT v.*, u.name as vendor_name, u.phone, u.email
     FROM vendors v
     JOIN users u ON v.user_id = u.user_id
@@ -46,11 +41,11 @@ function findNearbyVendors(lat, lon, category = null, radiusKm = DEFAULT_RADIUS_
   const params = [];
 
   if (category) {
-    query += ` AND (v.category = ? OR v.skills LIKE ?)`;
+    sql += ` AND (v.category = ? OR v.skills LIKE ?)`;
     params.push(category, `%${category}%`);
   }
 
-  const vendors = db.prepare(query).all(...params);
+  const vendors = await db.all(sql, params);
 
   // Calculate distance and filter by radius
   const nearbyVendors = vendors
@@ -68,7 +63,7 @@ function findNearbyVendors(lat, lon, category = null, radiusKm = DEFAULT_RADIUS_
  * Rank vendors by multiple factors:
  * - Distance (40% weight) - closer is better
  * - Rating (35% weight) - higher is better
- * - Availability/Jobs completed (15% weight) - experience matters
+ * - Jobs completed (15% weight) - experience matters
  * - Experience years (10% weight)
  */
 function rankVendors(vendors) {
@@ -94,19 +89,19 @@ function rankVendors(vendors) {
 /**
  * Auto-select top N vendors for a tender
  */
-function autoSelectVendors(lat, lon, category, topN = 3) {
-  const ranked = findNearbyVendors(lat, lon, category);
+async function autoSelectVendors(lat, lon, category, topN = 3) {
+  const ranked = await findNearbyVendors(lat, lon, category);
   return ranked.slice(0, topN);
 }
 
 /**
  * Get vendor's active jobs count
  */
-function getActiveJobsCount(vendorId) {
-  const result = db.prepare(`
+async function getActiveJobsCount(vendorId) {
+  const result = await db.get(`
     SELECT COUNT(*) as count FROM micro_tenders
     WHERE assigned_vendor_id = ? AND status IN ('assigned', 'in_progress')
-  `).get(vendorId);
+  `, [vendorId]);
   return result.count;
 }
 
