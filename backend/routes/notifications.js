@@ -60,31 +60,13 @@ router.patch('/:id/read', authenticate, async (req, res) => {
   }
 });
 
+const { sendSmartNotification } = require('../services/notificationService');
+
 /**
- * Utility function to send a notification (Internal use - async)
+ * Utility function to send a notification (Delegates to multi-channel smart service)
  */
 router.sendNotification = async function (app, userId, title, message, type = 'info') {
-  try {
-    const result = await db.run(`
-      INSERT INTO notifications (user_id, title, message, type)
-      VALUES (?, ?, ?, ?)
-    `, [userId, title, message, type]);
-
-    const notification = await db.get(
-      'SELECT * FROM notifications WHERE notification_id = ?',
-      [result.insertId]
-    );
-
-    // Emit via Socket.IO
-    const io = app.get('io');
-    if (io) {
-      io.to(`user_${userId}`).emit('notification', notification);
-    }
-
-    return notification;
-  } catch (err) {
-    console.error('Send notification utility error:', err);
-  }
+  return await sendSmartNotification(app, userId, { title, message, type });
 };
 
 module.exports = router;

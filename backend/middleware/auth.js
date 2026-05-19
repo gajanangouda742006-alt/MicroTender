@@ -1,10 +1,12 @@
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'micro-tender-secret-key-2026';
-const JWT_EXPIRES_IN = '7d';
+const JWT_EXPIRES_IN = '1h';
+const REFRESH_TOKEN_EXPIRES_DAYS = 30;
 
 /**
- * Generate JWT token for a user
+ * Generate JWT access token for a user (short-lived)
  */
 function generateToken(user) {
   return jwt.sign(
@@ -12,6 +14,41 @@ function generateToken(user) {
     JWT_SECRET,
     { expiresIn: JWT_EXPIRES_IN }
   );
+}
+
+/**
+ * Generate a secure random refresh token string
+ */
+function generateRefreshToken() {
+  return crypto.randomBytes(64).toString('hex');
+}
+
+/**
+ * Log user activity into activity_logs table
+ */
+async function logActivity(db, userId, action, details, ipAddress) {
+  try {
+    await db.run(
+      'INSERT INTO activity_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)',
+      [userId, action, details || null, ipAddress || null]
+    );
+  } catch (err) {
+    console.error('Activity log error:', err.message);
+  }
+}
+
+/**
+ * Log admin action into admin_logs table
+ */
+async function logAdminAction(db, adminId, action, targetId, targetType, details) {
+  try {
+    await db.run(
+      'INSERT INTO admin_logs (admin_id, action, target_id, target_type, details) VALUES (?, ?, ?, ?, ?)',
+      [adminId, action, targetId || null, targetType || null, details || null]
+    );
+  } catch (err) {
+    console.error('Admin log error:', err.message);
+  }
 }
 
 /**
@@ -45,4 +82,4 @@ function authorize(...roles) {
   };
 }
 
-module.exports = { generateToken, authenticate, authorize, JWT_SECRET };
+module.exports = { generateToken, generateRefreshToken, authenticate, authorize, logActivity, logAdminAction, JWT_SECRET, REFRESH_TOKEN_EXPIRES_DAYS };

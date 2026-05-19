@@ -4,11 +4,135 @@ import { Link, Routes, Route } from 'react-router-dom';
 import api from '../api';
 import MapPicker from '../components/MapPicker';
 import { StatusBadge } from '../components/StatusTimeline';
-import { MapPin, Briefcase, Send, User, Building, Star, DollarSign, CheckCircle } from 'lucide-react';
+import { MapPin, Briefcase, Send, User, Building, Star, DollarSign, CheckCircle, X, Camera, Loader } from 'lucide-react';
+
+function WorkUpdateModal({ tenderId, onClose, onSuccess }) {
+  const [description, setDescription] = useState('');
+  const [progress, setProgress] = useState(100);
+  const [image, setImage] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const fd = new FormData();
+      fd.append('tender_id', tenderId);
+      fd.append('description', description);
+      fd.append('progress_percentage', progress);
+      if (image) fd.append('image', image);
+
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(async (pos) => {
+          fd.append('latitude', pos.coords.latitude);
+          fd.append('longitude', pos.coords.longitude);
+          await submitData(fd);
+        }, async () => {
+          await submitData(fd);
+        });
+      } else {
+        await submitData(fd);
+      }
+    } catch (err) {
+      alert(err.message);
+      setLoading(false);
+    }
+  };
+
+  const submitData = async (formData) => {
+    try {
+      await api.submitWorkUpdate(formData);
+      alert('Progress update and proof submitted successfully!');
+      onSuccess();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="glass-card max-w-lg w-full p-8 border border-border-primary shadow-2xl space-y-6 animate-scale-up">
+        <div className="flex justify-between items-center pb-4 border-b border-border-primary">
+          <h3 className="text-xl font-bold text-text-primary flex items-center gap-2">
+            <Camera size={20} className="text-secondary-500" /> Submit Work Proof
+          </h3>
+          <button onClick={onClose} className="text-text-tertiary hover:text-text-primary transition-colors">
+            <X size={24} />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-text-tertiary uppercase tracking-wider block">Progress ({progress}%)</label>
+            <input 
+              type="range" 
+              min="10" 
+              max="100" 
+              step="10"
+              value={progress} 
+              onChange={e => setProgress(parseInt(e.target.value))}
+              className="w-full h-2 bg-bg-secondary rounded-lg appearance-none cursor-pointer accent-secondary-500"
+            />
+            <div className="flex justify-between text-[10px] text-text-tertiary font-bold">
+              <span>10%</span>
+              <span>50%</span>
+              <span>100% (Complete Job)</span>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-text-tertiary uppercase tracking-wider block">Description of Work Done</label>
+            <textarea 
+              required
+              rows={3}
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              className="input-futuristic w-full"
+              placeholder="Describe materials used, steps taken, etc..."
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-text-tertiary uppercase tracking-wider block">Photo Evidence (After Photo)</label>
+            <div className="relative group">
+              <input type="file" accept="image/*" onChange={e => setImage(e.target.files[0])} required
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+              <div className="bg-bg-secondary border-2 border-dashed border-border-primary rounded-xl p-5 text-center group-hover:border-secondary-500 transition-colors">
+                {image ? (
+                  <p className="text-xs text-secondary-600 font-bold">📸 {image.name}</p>
+                ) : (
+                  <p className="text-xs text-text-tertiary font-bold">Click to select photo evidence</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <button 
+            type="submit" 
+            disabled={loading} 
+            className="btn-primary w-full py-3.5 font-bold flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <>
+                <Loader size={18} className="animate-spin" />
+                Submitting Proof...
+              </>
+            ) : (
+              <span>Submit Proof</span>
+            )}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 function Overview() {
   const [profile, setProfile] = useState(null);
   const [jobs, setJobs] = useState({ jobs: [], applications: [] });
+  const [updatingTenderId, setUpdatingTenderId] = useState(null);
+
   useEffect(() => {
     api.getVendorProfile().then(d => setProfile(d)).catch(() => { });
     api.getMyJobs().then(setJobs).catch(() => { });
@@ -70,7 +194,7 @@ function Overview() {
               <div className="space-y-4">
                 {jobs.jobs?.filter(j => ['assigned', 'in_progress'].includes(j.status)).map((j, index) => (
                   <div key={j.tender_id} className="flex items-center justify-between p-5 bg-bg-secondary rounded-2xl border border-border-primary hover:bg-bg-tertiary transition-all animate-fade-in" style={{ animationDelay: `${index * 0.1}s` }}>
-                    <div className="flex-1">
+                    <div className="flex-1 pr-4">
                       <p className="font-bold text-text-primary text-base mb-1">{j.description?.substring(0, 80)}...</p>
                       <p className="text-xs text-text-tertiary font-bold uppercase tracking-widest">{j.category} • <span className="text-green-600">₹{j.estimated_cost}</span></p>
                     </div>
@@ -86,10 +210,10 @@ function Overview() {
                       )}
                       {j.status === 'in_progress' && (
                         <button
-                          onClick={async () => { await api.updateTenderStatus(j.tender_id, 'completed'); window.location.reload(); }}
+                          onClick={() => setUpdatingTenderId(j.tender_id)}
                           className="btn-primary px-5 py-2 text-sm font-bold bg-green-600 hover:bg-green-700 shadow-soft active:scale-95 transition-all"
                         >
-                          Complete
+                          Update Progress
                         </button>
                       )}
                     </div>
@@ -100,6 +224,13 @@ function Overview() {
           </div>
         </>
       )}
+      {updatingTenderId && (
+        <WorkUpdateModal 
+          tenderId={updatingTenderId} 
+          onClose={() => setUpdatingTenderId(null)} 
+          onSuccess={() => { setUpdatingTenderId(null); window.location.reload(); }} 
+        />
+      )}
     </div>
   );
 }
@@ -109,14 +240,8 @@ function NearbyTenders() {
   const [loading, setLoading] = useState(true);
   const [bidForm, setBidForm] = useState({ tenderId: null, amount: '', proposal: '' });
 
-  useEffect(() => { api.getNearbyTenders(10).then(d => setTenders(d.tenders || [])).catch(console.error).finally(() => setLoading(false)); }, []);
-
-  const applyBid = async () => {
-    try {
-      await api.applyToTender(bidForm.tenderId, parseFloat(bidForm.amount), bidForm.proposal);
-      alert('Bid submitted!'); setBidForm({ tenderId: null, amount: '', proposal: '' }); window.location.reload();
-    } catch (err) { alert(err.message); }
-  };
+  useEffect(() => { api.getNearbyTenders(10).then(d => setTenders(d.tenders || []))
+    .catch(console.error).finally(() => setLoading(false)); }, []);
 
   return (
     <div className="animate-fade-in max-w-5xl mx-auto">
@@ -175,6 +300,8 @@ function NearbyTenders() {
 function MyJobs() {
   const [data, setData] = useState({ jobs: [], applications: [] });
   const [loading, setLoading] = useState(true);
+  const [updatingTenderId, setUpdatingTenderId] = useState(null);
+
   useEffect(() => { api.getMyJobs().then(setData).catch(console.error).finally(() => setLoading(false)); }, []);
 
   return (
@@ -214,9 +341,9 @@ function MyJobs() {
                       </button>
                     )}
                     {j.status === 'in_progress' && (
-                      <button onClick={async () => { await api.updateTenderStatus(j.tender_id, 'completed'); window.location.reload(); }}
+                      <button onClick={() => setUpdatingTenderId(j.tender_id)}
                         className="px-6 py-2 bg-green-600 text-white rounded-xl text-xs font-bold shadow-soft hover:bg-green-700 transition-all">
-                        Complete
+                        Update Progress
                       </button>
                     )}
                   </div>
@@ -253,6 +380,13 @@ function MyJobs() {
           </div>
         )}
       </div>
+      {updatingTenderId && (
+        <WorkUpdateModal 
+          tenderId={updatingTenderId} 
+          onClose={() => setUpdatingTenderId(null)} 
+          onSuccess={() => { setUpdatingTenderId(null); window.location.reload(); }} 
+        />
+      )}
     </div>
   );
 }
@@ -346,6 +480,7 @@ function Profile() {
   );
 }
 
+import NotificationsPanel from './NotificationsPanel';
 
 export default function VendorDashboard() {
   return (
@@ -354,6 +489,7 @@ export default function VendorDashboard() {
       <Route path="nearby" element={<NearbyTenders />} />
       <Route path="my-jobs" element={<MyJobs />} />
       <Route path="profile" element={<Profile />} />
+      <Route path="notifications" element={<NotificationsPanel />} />
     </Routes>
   );
 }

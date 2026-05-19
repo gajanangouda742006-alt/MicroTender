@@ -32,7 +32,7 @@ export default function NotificationBell() {
       {isOpen && (
         <>
           <div className="fixed inset-0 z-[40]" onClick={() => setIsOpen(false)} />
-          <div className="absolute left-0 mt-2 w-80 glass rounded-2xl shadow-2xl z-[50] overflow-hidden border border-white/20 animate-fade-in">
+          <div className="absolute right-0 mt-2 w-80 glass rounded-2xl shadow-2xl z-[50] overflow-hidden border border-white/20 animate-fade-in">
             <div className="p-4 border-b border-[rgba(255,255,255,0.08)] flex items-center justify-between bg-[rgba(45,48,120,0.72)] backdrop-blur-[14px]">
               <h3 className="font-bold text-sm">Notifications</h3>
               {unreadCount > 0 && (

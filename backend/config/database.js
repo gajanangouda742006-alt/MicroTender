@@ -162,6 +162,105 @@ db.initDatabase = async function () {
     )
   `);
 
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS work_updates (
+      update_id INT PRIMARY KEY AUTO_INCREMENT,
+      tender_id INT NOT NULL,
+      vendor_id INT NOT NULL,
+      description TEXT NOT NULL,
+      image_url TEXT,
+      latitude DOUBLE,
+      longitude DOUBLE,
+      progress_percentage INT DEFAULT 0,
+      verification_status VARCHAR(50) DEFAULT 'verified',
+      verification_reasoning TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (tender_id) REFERENCES micro_tenders(tender_id) ON DELETE CASCADE,
+      FOREIGN KEY (vendor_id) REFERENCES vendors(vendor_id) ON DELETE CASCADE
+    )
+  `);
+
+  try {
+    await pool.execute(`ALTER TABLE work_updates ADD COLUMN verification_status VARCHAR(50) DEFAULT 'verified'`);
+    await pool.execute(`ALTER TABLE work_updates ADD COLUMN verification_reasoning TEXT`);
+  } catch (e) {
+    // Ignore if columns already exist
+  }
+
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS sessions (
+      session_id INT PRIMARY KEY AUTO_INCREMENT,
+      user_id INT NOT NULL,
+      token TEXT NOT NULL,
+      ip_address VARCHAR(45),
+      user_agent TEXT,
+      expires_at DATETIME NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+    )
+  `);
+
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS refresh_tokens (
+      token_id INT PRIMARY KEY AUTO_INCREMENT,
+      user_id INT NOT NULL,
+      token VARCHAR(255) UNIQUE NOT NULL,
+      expires_at DATETIME NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+    )
+  `);
+
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS activity_logs (
+      log_id INT PRIMARY KEY AUTO_INCREMENT,
+      user_id INT NOT NULL,
+      action VARCHAR(255) NOT NULL,
+      details TEXT,
+      ip_address VARCHAR(45),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+    )
+  `);
+
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS admin_logs (
+      log_id INT PRIMARY KEY AUTO_INCREMENT,
+      admin_id INT NOT NULL,
+      action VARCHAR(255) NOT NULL,
+      target_id INT,
+      target_type VARCHAR(100),
+      details TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (admin_id) REFERENCES users(user_id) ON DELETE CASCADE
+    )
+  `);
+
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS system_logs (
+      log_id INT PRIMARY KEY AUTO_INCREMENT,
+      level VARCHAR(50) NOT NULL,
+      message TEXT NOT NULL,
+      context TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      audit_id INT PRIMARY KEY AUTO_INCREMENT,
+      user_id INT,
+      action VARCHAR(255) NOT NULL,
+      table_name VARCHAR(100) NOT NULL,
+      row_id INT,
+      old_values TEXT,
+      new_values TEXT,
+      ip_address VARCHAR(45),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE SET NULL
+    )
+  `);
+
   // Indexes (ignore if already exist)
   const indexes = [
     `CREATE INDEX idx_complaints_user ON complaints(user_id)`,

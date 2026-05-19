@@ -89,6 +89,51 @@ router.get('/dashboard', async (req, res) => {
       ORDER BY fl.created_at DESC LIMIT 20
     `, []);
 
+    // Calculate Enterprise AI Fraud Score (System Risk Index)
+    const activeAlertsCount = await db.all(`
+      SELECT severity, COUNT(*) as count 
+      FROM fraud_logs 
+      WHERE resolved = 0 
+      GROUP BY severity
+    `, []);
+
+    let calculatedRisk = 0;
+    activeAlertsCount.forEach(row => {
+      if (row.severity === 'critical') calculatedRisk += row.count * 20;
+      else if (row.severity === 'high') calculatedRisk += row.count * 10;
+      else if (row.severity === 'medium') calculatedRisk += row.count * 4;
+      else calculatedRisk += row.count * 1;
+    });
+    const systemRiskScore = Math.min(100, Math.max(0, calculatedRisk));
+
+    // Identify suspicious vendors dynamically using the anti-fraud misuse engine
+    const suspiciousVendors = [];
+    const allVendors = await db.all('SELECT v.vendor_id, v.company_name, v.rating_avg, u.name as vendor_name FROM vendors v JOIN users u ON v.user_id = u.user_id', []);
+    for (const vendor of allVendors) {
+      const alerts = await detectVendorMisuse(vendor.vendor_id);
+      if (alerts.length > 0) {
+        suspiciousVendors.push({
+          vendor_id: vendor.vendor_id,
+          company_name: vendor.company_name || vendor.vendor_name,
+          rating_avg: vendor.rating_avg,
+          alerts
+        });
+      }
+    }
+
+    // Locate high-risk zones based on active fraud logs
+    const highRiskZones = await db.all(`
+      SELECT ROUND(c.latitude, 4) as lat, ROUND(c.longitude, 4) as lon,
+             COUNT(fl.log_id) as alert_count,
+             MAX(fl.severity) as max_severity,
+             MIN(c.category) as category
+      FROM complaints c
+      JOIN fraud_logs fl ON c.user_id = fl.user_id
+      WHERE fl.resolved = 0
+      GROUP BY lat, lon
+      ORDER BY alert_count DESC LIMIT 5
+    `, []);
+
     res.json({
       overview: {
         totalComplaints, pendingComplaints, activeComplaints, completedComplaints,
@@ -98,7 +143,15 @@ router.get('/dashboard', async (req, res) => {
       categoryStats, priorityStats, monthlyTrend, topVendors,
       costs: { totalEstimatedCost, totalManualCost, avgBidAmount },
       fraudAlerts,
-      aiAnalytics: { avgAiConfidence, departmentDistribution, riskDistribution, totalAnalyzed: aiData.length }
+      aiAnalytics: { 
+        avgAiConfidence, 
+        departmentDistribution, 
+        riskDistribution, 
+        totalAnalyzed: aiData.length,
+        systemRiskScore,
+        suspiciousVendors,
+        highRiskZones
+      }
     });
   } catch (err) {
     console.error('Dashboard error:', err);
@@ -161,6 +214,14 @@ router.post('/auto-assign/:tenderId', async (req, res) => {
       [bestVendor.vendor_id, tender.tender_id]);
     await db.run("UPDATE complaints SET status = 'assigned', updated_at = NOW() WHERE complaint_id = ?",
       [tender.complaint_id]);
+
+    const citizen = await db.get("SELECT c.user_id, c.category FROM complaints c WHERE c.complaint_id = ?", [tender.complaint_id]);
+    if (citizen) {
+      await notifications.sendNotification(req.app, citizen.user_id, 'Vendor Assigned',
+        `A vendor (${bestVendor.company_name || bestVendor.vendor_name}) has been auto-assigned to resolve your complaint: ${citizen.category}.`, 'success');
+    }
+    await notifications.sendNotification(req.app, bestVendor.user_id, 'New Job Assigned',
+      `You have been auto-assigned to a new micro-tender for: ${citizen?.category || 'Civic Issue'}.`, 'success');
 
     res.json({ message: 'Auto-assigned to best matching vendor', assignedVendor: bestVendor, candidates: topVendors });
   } catch (err) {
@@ -307,6 +368,31 @@ router.get('/nearby-vendors', async (req, res) => {
   } catch (err) {
     console.error('Nearby vendors error:', err);
     res.status(500).json({ error: 'Failed to find nearby vendors.' });
+  }
+});
+
+// GET /api/admin/verifications - Fetch all vendor progress updates and their AI photo inspections
+router.get('/verifications', async (req, res) => {
+  try {
+    const verifications = await db.all(`
+      SELECT wu.*, 
+             v.company_name, 
+             u.name as vendor_name,
+             mt.priority as tender_priority,
+             c.category,
+             c.description as complaint_description,
+             c.image_url as before_image_url
+      FROM work_updates wu
+      JOIN vendors v ON wu.vendor_id = v.vendor_id
+      JOIN users u ON v.user_id = u.user_id
+      JOIN micro_tenders mt ON wu.tender_id = mt.tender_id
+      JOIN complaints c ON mt.complaint_id = c.complaint_id
+      ORDER BY wu.created_at DESC
+    `, []);
+    res.json({ verifications });
+  } catch (err) {
+    console.error('Verifications fetch error:', err);
+    res.status(500).json({ error: 'Failed to fetch verifications.' });
   }
 });
 

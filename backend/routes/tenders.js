@@ -12,7 +12,9 @@ router.get('/', authenticate, async (req, res) => {
     const offset = (parseInt(page) - 1) * parseInt(limit);
     let query = `
       SELECT mt.*, c.category, c.description, c.latitude, c.longitude, c.image_url,
-             u.name as citizen_name, v.company_name as vendor_company
+             u.name as citizen_name, v.company_name as vendor_company,
+             (SELECT verification_status FROM work_updates WHERE tender_id = mt.tender_id ORDER BY created_at DESC LIMIT 1) as verification_status,
+             (SELECT verification_reasoning FROM work_updates WHERE tender_id = mt.tender_id ORDER BY created_at DESC LIMIT 1) as verification_reasoning
       FROM micro_tenders mt
       JOIN complaints c ON mt.complaint_id = c.complaint_id
       JOIN users u ON c.user_id = u.user_id
@@ -33,7 +35,7 @@ router.get('/', authenticate, async (req, res) => {
     }
 
     query += ' ORDER BY mt.created_at DESC LIMIT ? OFFSET ?';
-    params.push(parseInt(limit), offset);
+    params.push(String(limit), String(offset));
 
     const tenders = await db.all(query, params);
     res.json({ tenders });
@@ -113,6 +115,38 @@ router.patch('/:id/status', authenticate, async (req, res) => {
   } catch (err) {
     console.error('Update tender error:', err);
     res.status(500).json({ error: 'Failed to update tender.' });
+  }
+});
+
+// POST /api/tenders/check-deadlines - Check approaching deadlines and notify assigned vendors
+router.post('/check-deadlines', authenticate, async (req, res) => {
+  try {
+    const approachingTenders = await db.all(`
+      SELECT mt.*, v.user_id as vendor_user_id, c.category
+      FROM micro_tenders mt
+      JOIN complaints c ON mt.complaint_id = c.complaint_id
+      JOIN vendors v ON mt.assigned_vendor_id = v.vendor_id
+      WHERE mt.status IN ('assigned', 'in_progress')
+        AND mt.deadline IS NOT NULL
+        AND mt.deadline <= DATE_ADD(NOW(), INTERVAL 1 DAY)
+    `);
+
+    const notificationsSent = [];
+    const { sendSmartNotification } = require('../services/notificationService');
+
+    for (const tender of approachingTenders) {
+      const daysLeft = Math.max(0, Math.ceil((new Date(tender.deadline) - new Date()) / (1000 * 60 * 60 * 24)));
+      const title = 'Work Deadline Reminder';
+      const message = `Reminder: The deadline for resolving the "${tender.category}" issue is approaching. You have ${daysLeft} days remaining.`;
+      
+      await sendSmartNotification(req.app, tender.vendor_user_id, { title, message, type: 'warning' });
+      notificationsSent.push({ tender_id: tender.tender_id, vendor_user_id: tender.vendor_user_id });
+    }
+
+    res.json({ message: 'Deadline checks completed successfully', notificationsSent });
+  } catch (err) {
+    console.error('Deadline checks error:', err);
+    res.status(500).json({ error: 'Failed to run deadline check.' });
   }
 });
 

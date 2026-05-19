@@ -103,7 +103,7 @@ router.get('/', authenticate, async (req, res) => {
     if (status) { query += ' AND c.status = ?'; params.push(status); }
     if (category) { query += ' AND c.category = ?'; params.push(category); }
     query += ' ORDER BY c.created_at DESC LIMIT ? OFFSET ?';
-    params.push(parseInt(limit), offset);
+    params.push(String(limit), String(offset));
 
     const complaints = await db.all(query, params);
 
@@ -171,7 +171,18 @@ router.get('/:id', authenticate, async (req, res) => {
     `, [tender?.tender_id || 0]);
 
     const rating = await db.get('SELECT * FROM ratings WHERE complaint_id = ?', [complaint.complaint_id]);
-    res.json({ complaint, tender, applications, rating });
+    
+    const workUpdates = tender ? await db.all(
+      `SELECT wu.*, v.company_name, u.name as vendor_name
+       FROM work_updates wu
+       JOIN vendors v ON wu.vendor_id = v.vendor_id
+       JOIN users u ON v.user_id = u.user_id
+       WHERE wu.tender_id = ?
+       ORDER BY wu.created_at DESC`,
+      [tender.tender_id]
+    ) : [];
+
+    res.json({ complaint, tender, applications, rating, workUpdates });
   } catch (err) {
     console.error('Get complaint error:', err);
     res.status(500).json({ error: 'Failed to get complaint.' });

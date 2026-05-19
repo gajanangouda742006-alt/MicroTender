@@ -1,6 +1,9 @@
 const API_BASE = '/api';
 
-async function request(endpoint, options = {}) {
+let isRefreshing = false;
+let refreshQueue = [];
+
+async function request(endpoint, options = {}, retried = false) {
   const token = localStorage.getItem('token');
   const headers = { ...options.headers };
 
@@ -10,12 +13,60 @@ async function request(endpoint, options = {}) {
   }
 
   const res = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
-  const data = await res.json();
 
+  // Auto-refresh on 401
+  if (res.status === 401 && !retried) {
+    const refreshToken = localStorage.getItem('refreshToken');
+    if (refreshToken) {
+      try {
+        const refreshed = await refreshAccessToken(refreshToken);
+        if (refreshed) {
+          return request(endpoint, options, true);
+        }
+      } catch (e) {
+        // Refresh failed, clear tokens
+        localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+        throw new Error('Session expired. Please login again.');
+      }
+    }
+  }
+
+  const data = await res.json();
   if (!res.ok) {
     throw new Error(data.error || 'Request failed');
   }
   return data;
+}
+
+async function refreshAccessToken(refreshToken) {
+  if (isRefreshing) {
+    return new Promise((resolve) => { refreshQueue.push(resolve); });
+  }
+  isRefreshing = true;
+  try {
+    const res = await fetch(`${API_BASE}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken })
+    });
+    if (!res.ok) throw new Error('Refresh failed');
+    const data = await res.json();
+    localStorage.setItem('token', data.token);
+    localStorage.setItem('refreshToken', data.refreshToken);
+    // Resolve queued requests
+    refreshQueue.forEach(cb => cb(true));
+    refreshQueue = [];
+    return true;
+  } catch (err) {
+    refreshQueue.forEach(cb => cb(false));
+    refreshQueue = [];
+    throw err;
+  } finally {
+    isRefreshing = false;
+  }
 }
 
 const api = {
@@ -25,6 +76,7 @@ const api = {
   getProfile: () => request('/auth/me'),
   sendOtp: (email) => request('/auth/send-otp', { method: 'POST', body: JSON.stringify({ email }) }),
   verifyOtp: (email, otp) => request('/auth/verify-otp', { method: 'POST', body: JSON.stringify({ email, otp }) }),
+  logout: (refreshToken) => request('/auth/logout', { method: 'POST', body: JSON.stringify({ refreshToken }) }),
 
   // Complaints
   getComplaints: (params = '') => request(`/complaints${params ? '?' + params : ''}`),
@@ -37,6 +89,7 @@ const api = {
   // Tenders
   getTenders: (params = '') => request(`/tenders${params ? '?' + params : ''}`),
   getTender: (id) => request(`/tenders/${id}`),
+  getTenderDetails: (id) => request(`/tenders/${id}`),
   updateTenderStatus: (id, status) => request(`/tenders/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
 
   // Vendors
@@ -46,6 +99,10 @@ const api = {
   getNearbyTenders: (radius) => request(`/vendors/nearby-tenders?radius=${radius || 5}`),
   applyToTender: (tenderId, bid_amount, proposal) => request(`/vendors/apply/${tenderId}`, { method: 'POST', body: JSON.stringify({ bid_amount, proposal }) }),
   getMyJobs: () => request('/vendors/my-jobs'),
+
+  // Work Updates
+  submitWorkUpdate: (formData) => request('/work-updates', { method: 'POST', body: formData, headers: {} }),
+  getWorkUpdates: (tenderId) => request(`/work-updates/${tenderId}`),
 
   // Admin
   getDashboard: () => request('/admin/dashboard'),
@@ -58,6 +115,7 @@ const api = {
   getVendorDetails: (id) => request(`/admin/vendor/${id}/details`),
   getNearbyVendors: (lat, lon, category) => request(`/admin/nearby-vendors?lat=${lat}&lon=${lon}${category ? '&category=' + category : ''}`),
   getAllVendors: () => request('/vendors/all'),
+  getVerifications: () => request('/admin/verifications'),
 
   // Notifications
   getNotifications: () => request('/notifications'),
@@ -66,3 +124,4 @@ const api = {
 };
 
 export default api;
+

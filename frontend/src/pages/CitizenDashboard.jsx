@@ -437,7 +437,7 @@ function ComplaintDetail() {
 
   if (loading) return <div className="flex items-center justify-center py-20 font-bold text-text-tertiary uppercase tracking-widest text-xs">Loading case file...</div>;
   if (!data) return <div className="text-center py-20 text-red-500 font-bold">Complaint not found</div>;
-  const { complaint, tender, applications, rating: existingRating } = data;
+  const { complaint, tender, applications, rating: existingRating, workUpdates } = data;
 
   return (
     <div className="animate-fade-in max-w-5xl mx-auto space-y-8 pb-10">
@@ -472,10 +472,83 @@ function ComplaintDetail() {
               <span className="text-text-primary font-bold text-sm">{new Date(complaint.created_at).toLocaleString()}</span>
             </div>
           </div>
-            {complaint.image_url && (
-              <div className="mt-8">
-                <p className="text-text-tertiary font-bold uppercase tracking-wider text-xs mb-3">Photo Evidence</p>
-                <img src={complaint.image_url} alt="Evidence" className="rounded-2xl w-full max-h-80 object-cover border-2 border-border-primary shadow-soft hover:shadow-lg transition-shadow" />
+            {/* Before and After Image Proof Verification */}
+            {(() => {
+              const afterUpdate = workUpdates?.find(wu => wu.image_url);
+              if (complaint.image_url && afterUpdate) {
+                return (
+                  <div className="mt-8 pt-8 border-t border-border-primary space-y-6">
+                    <p className="text-sm font-bold text-text-primary uppercase tracking-tight flex items-center gap-2">
+                      📸 Before & After Proof Verification
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest block text-center">Before (Citizen Report)</span>
+                        <img src={complaint.image_url} alt="Before" className="rounded-2xl w-full h-48 object-cover border-2 border-border-primary shadow-soft hover:shadow-lg transition-all" />
+                      </div>
+                      <div className="space-y-2">
+                        <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest block text-center">After (Work Completion: {afterUpdate.progress_percentage}%)</span>
+                        <img src={afterUpdate.image_url} alt="After" className="rounded-2xl w-full h-48 object-cover border-2 border-border-primary shadow-soft hover:shadow-lg transition-all" />
+                      </div>
+                    </div>
+                    <div className="p-5 bg-bg-secondary/60 rounded-2xl border border-border-primary space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">Inspection Status</span>
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-widest border ${
+                          afterUpdate.verification_status === 'suspicious' 
+                            ? 'bg-red-500/10 text-red-500 border-red-500/20' 
+                            : 'bg-green-500/10 text-green-500 border-green-500/20'
+                        }`}>
+                          {afterUpdate.verification_status === 'suspicious' ? '⚠ Suspicious Upload' : '✅ Verified Resolution'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-text-secondary font-semibold leading-relaxed">
+                        <strong>AI Inspector Reasoning:</strong> {afterUpdate.verification_reasoning}
+                      </p>
+                    </div>
+                  </div>
+                );
+              } else if (complaint.image_url) {
+                return (
+                  <div className="mt-8">
+                    <p className="text-text-tertiary font-bold uppercase tracking-wider text-xs mb-3">Photo Evidence</p>
+                    <img src={complaint.image_url} alt="Evidence" className="rounded-2xl w-full max-h-80 object-cover border-2 border-border-primary shadow-soft hover:shadow-lg transition-shadow" />
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
+            {workUpdates && workUpdates.length > 0 && (
+              <div className="mt-8 pt-8 border-t border-border-primary space-y-4">
+                <h3 className="text-sm font-bold text-text-primary flex items-center gap-2 uppercase tracking-tight">
+                  📈 Resolution Progress Updates
+                </h3>
+                <div className="space-y-3">
+                  {workUpdates.map((wu, i) => (
+                    <div key={wu.update_id} className="p-4 bg-bg-secondary/40 rounded-2xl border border-border-primary flex items-start gap-4 hover:bg-bg-secondary transition-all">
+                      <div className="bg-secondary-500/10 text-secondary-500 text-xs font-extrabold px-3 py-1.5 rounded-xl border border-secondary-500/20 shadow-sm">
+                        {wu.progress_percentage}%
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm text-text-primary font-bold">{wu.description}</p>
+                        <p className="text-[10px] text-text-tertiary font-extrabold mt-1.5 uppercase tracking-wider flex gap-3">
+                          <span>{new Date(wu.created_at).toLocaleString()}</span>
+                          <span>•</span>
+                          <span className="text-secondary-600 font-bold">{wu.company_name || wu.vendor_name}</span>
+                        </p>
+                        {wu.verification_status === 'suspicious' && (
+                          <span className="inline-block mt-2 text-[10px] font-extrabold text-red-500 bg-red-500/5 px-2 py-0.5 rounded-lg border border-red-500/10">
+                            ⚠ Suspicious Verification Alert
+                          </span>
+                        )}
+                      </div>
+                      {wu.image_url && (
+                        <img src={wu.image_url} alt="Progress proof" className="w-12 h-12 rounded-xl object-cover border border-border-primary cursor-pointer hover:scale-105 transition-transform" onClick={() => window.open(wu.image_url, '_blank')} />
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
             
@@ -625,6 +698,8 @@ function Scoreboard() {
 }
 
 
+import NotificationsPanel from './NotificationsPanel';
+
 export default function CitizenDashboard() {
   return (
     <Routes>
@@ -633,6 +708,7 @@ export default function CitizenDashboard() {
       <Route path="my-complaints" element={<MyComplaints />} />
       <Route path="complaint/:id" element={<ComplaintDetail />} />
       <Route path="scoreboard" element={<Scoreboard />} />
+      <Route path="notifications" element={<NotificationsPanel />} />
     </Routes>
   );
 }
