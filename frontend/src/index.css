@@ -126,13 +126,45 @@ body {
   border: 1px solid var(--glass-border);
   border-radius: 24px;
   box-shadow: var(--shadow-glass);
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.4s ease-out, box-shadow 0.4s ease, border-color 0.4s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.glass-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(800px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(255,255,255,0.06), transparent 40%);
+  opacity: 0;
+  transition: opacity 0.5s;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.glass-card:hover::before {
+  opacity: 1;
 }
 
 .glass-card:hover {
-  transform: translateY(-6px);
-  box-shadow: var(--shadow-glass-strong);
-  border-color: var(--border-secondary);
+  transform: translateY(-4px) scale(1.005);
+  box-shadow: var(--shadow-glass-strong), 0 15px 30px -10px rgba(91, 77, 255, 0.1);
+  border-color: rgba(91, 77, 255, 0.2);
+}
+
+.dark .glass-card:hover {
+  box-shadow: var(--shadow-glass-strong), 0 20px 40px -10px rgba(255, 46, 136, 0.2);
+  border-color: rgba(255, 46, 136, 0.3);
+}
+
+.hover-3d {
+  transition: transform 0.4s ease-out !important;
+  transform-style: preserve-3d;
+}
+
+.hover-3d:hover {
+  transform: translateY(-4px) scale3d(1.01, 1.01, 1.01) !important;
+  box-shadow: 10px 10px 30px rgba(0,0,0,0.08), -10px -10px 30px rgba(255,255,255,0.03) !important;
 }
 
 .shadow-soft {
@@ -280,28 +312,56 @@ body {
 /* Button Styles */
 .btn-primary {
   background: linear-gradient(135deg, var(--accent-primary), #7C3AED);
+  background-size: 200% 200%;
   border: none;
   border-radius: 16px;
   color: white;
   font-weight: 700;
   letter-spacing: -0.01em;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 12px rgba(91, 77, 255, 0.25);
+  transition: transform 0.4s ease-out, box-shadow 0.4s ease, filter 0.4s ease;
+  box-shadow: 0 4px 15px rgba(91, 77, 255, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-primary::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, transparent 60%);
+  opacity: 0;
+  transform: scale(0.5);
+  transition: opacity 0.4s, transform 0.4s;
+  pointer-events: none;
+}
+
+.btn-primary:hover::after {
+  opacity: 1;
+  transform: scale(1);
 }
 
 .dark .btn-primary {
   background: linear-gradient(135deg, #FF2E88, #00D1FF);
-  box-shadow: 0 0 25px rgba(255, 46, 136, 0.3);
+  background-size: 200% 200%;
+  box-shadow: 0 0 25px rgba(255, 46, 136, 0.4);
 }
 
 .btn-primary:hover {
   transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 8px 24px rgba(91, 77, 255, 0.35);
+  box-shadow: 0 8px 24px rgba(91, 77, 255, 0.4);
   filter: brightness(1.1);
+  animation: gradient-shift 4s ease infinite;
+}
+
+.btn-primary:active {
+  transform: translateY(2px) scale(0.97);
 }
 
 .dark .btn-primary:hover {
-  box-shadow: 0 0 35px rgba(255, 46, 136, 0.5);
+  box-shadow: 0 0 45px rgba(255, 46, 136, 0.6);
 }
 
 .btn-secondary {
@@ -328,21 +388,28 @@ body {
   border-radius: 14px;
   color: var(--text-primary);
   padding: 14px 18px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  backdrop-filter: blur(12px);
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  backdrop-filter: blur(16px);
   font-weight: 500;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.input-futuristic:hover {
+  transform: translateY(-1px);
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.02), 0 4px 12px rgba(0,0,0,0.03);
 }
 
 .input-futuristic:focus {
   border-color: var(--accent-primary);
-  box-shadow: 0 0 0 4px rgba(91, 77, 255, 0.1);
-  background: var(--bg-tertiary);
+  box-shadow: 0 0 0 4px rgba(91, 77, 255, 0.15), inset 0 2px 4px rgba(0,0,0,0.02);
+  background: var(--bg-primary);
   outline: none;
+  transform: translateY(-2px);
 }
 
 .dark .input-futuristic:focus {
   border-color: #00D1FF;
-  box-shadow: 0 0 0 4px rgba(0, 209, 255, 0.15);
+  box-shadow: 0 0 0 4px rgba(0, 209, 255, 0.2), 0 0 20px rgba(0, 209, 255, 0.1) inset;
 }
 
 /* Status colors */

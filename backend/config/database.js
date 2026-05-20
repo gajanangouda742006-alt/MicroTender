@@ -14,11 +14,28 @@ const db = {};
  * Initialize MySQL connection pool and create schema
  */
 db.initDatabase = async function () {
+  const dbName = process.env.DB_NAME || 'micro_tender_db';
+
+  // 1. Connect without database first to ensure the database exists
+  try {
+    const setupConn = await mysql.createConnection({
+      host: process.env.DB_HOST || 'localhost',
+      user: process.env.DB_USER || 'root',
+      password: process.env.DB_PASSWORD || '',
+      port: parseInt(process.env.DB_PORT) || 3306,
+    });
+    await setupConn.query(`CREATE DATABASE IF NOT EXISTS \`${dbName}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
+    await setupConn.end();
+  } catch (err) {
+    console.warn('⚠️ Could not auto-create database (it may already exist or user lacks permission):', err.message);
+  }
+
+  // 2. Initialize connection pool
   pool = mysql.createPool({
     host: process.env.DB_HOST || 'localhost',
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'micro_tender_db',
+    database: dbName,
     port: parseInt(process.env.DB_PORT) || 3306,
     waitForConnections: true,
     connectionLimit: 10,
@@ -186,6 +203,65 @@ db.initDatabase = async function () {
   } catch (e) {
     // Ignore if columns already exist
   }
+
+  // Migrate users table columns if they do not exist
+  try { await pool.execute(`ALTER TABLE users ADD COLUMN govt_id_type VARCHAR(50)`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE users ADD COLUMN govt_id_number VARCHAR(100)`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE users ADD COLUMN reputation_score DOUBLE DEFAULT 100.0`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE users ADD COLUMN is_active TINYINT(1) DEFAULT 1`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE users ADD COLUMN otp_code VARCHAR(10)`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE users ADD COLUMN otp_expires_at DATETIME`); } catch (e) {}
+
+  // Migrate vendors table columns if they do not exist
+  try { await pool.execute(`ALTER TABLE vendors ADD COLUMN company_name VARCHAR(255)`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE vendors ADD COLUMN category VARCHAR(100)`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE vendors ADD COLUMN skills TEXT`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE vendors ADD COLUMN latitude DOUBLE`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE vendors ADD COLUMN longitude DOUBLE`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE vendors ADD COLUMN address TEXT`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE vendors ADD COLUMN experience_years INT DEFAULT 0`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE vendors ADD COLUMN rating_avg DOUBLE DEFAULT 0.0`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE vendors ADD COLUMN total_ratings INT DEFAULT 0`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE vendors ADD COLUMN total_jobs_completed INT DEFAULT 0`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE vendors ADD COLUMN is_available TINYINT(1) DEFAULT 1`); } catch (e) {}
+
+  // Migrate complaints table columns if they do not exist
+  try { await pool.execute(`ALTER TABLE complaints ADD COLUMN latitude DOUBLE`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE complaints ADD COLUMN longitude DOUBLE`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE complaints ADD COLUMN admin_notes TEXT`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE complaints ADD COLUMN ai_analysis LONGTEXT`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE complaints ADD COLUMN department VARCHAR(255)`); } catch (e) {}
+
+  // Migrate micro_tenders table columns if they do not exist
+  try { await pool.execute(`ALTER TABLE micro_tenders ADD COLUMN manual_cost DOUBLE`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE micro_tenders ADD COLUMN selected_cost_type ENUM('ai', 'manual') DEFAULT 'ai'`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE micro_tenders ADD COLUMN deadline DATETIME`); } catch (e) {}
+
+  // Migrate sessions table columns if they do not exist
+  try { await pool.execute(`ALTER TABLE sessions ADD COLUMN token TEXT`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE sessions ADD COLUMN ip_address VARCHAR(45)`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE sessions ADD COLUMN user_agent TEXT`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE sessions ADD COLUMN expires_at DATETIME`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE sessions MODIFY COLUMN session_id INT AUTO_INCREMENT`); } catch (e) {}
+
+  // Migrate refresh_tokens table columns if they do not exist
+  try { await pool.execute(`ALTER TABLE refresh_tokens ADD COLUMN token VARCHAR(255)`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE refresh_tokens ADD COLUMN expires_at DATETIME`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE refresh_tokens MODIFY COLUMN token_id INT AUTO_INCREMENT`); } catch (e) {}
+
+  // Migrate activity_logs table columns if they do not exist
+  try { await pool.execute(`ALTER TABLE activity_logs ADD COLUMN details TEXT`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE activity_logs ADD COLUMN ip_address VARCHAR(45)`); } catch (e) {}
+
+  // Migrate admin_logs table columns if they do not exist
+  try { await pool.execute(`ALTER TABLE admin_logs ADD COLUMN target_id INT`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE admin_logs ADD COLUMN target_type VARCHAR(100)`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE admin_logs ADD COLUMN details TEXT`); } catch (e) {}
+
+  // Migrate fraud_logs table columns if they do not exist
+  try { await pool.execute(`ALTER TABLE fraud_logs ADD COLUMN description TEXT`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE fraud_logs ADD COLUMN severity ENUM('low','medium','high','critical') DEFAULT 'low'`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE fraud_logs ADD COLUMN resolved TINYINT(1) DEFAULT 0`); } catch (e) {}
 
   await pool.execute(`
     CREATE TABLE IF NOT EXISTS sessions (

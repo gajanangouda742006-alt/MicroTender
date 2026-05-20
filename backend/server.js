@@ -47,6 +47,7 @@ async function startServer() {
   app.use('/api/admin', require('./routes/admin'));
   app.use('/api/notifications', require('./routes/notifications'));
   app.use('/api/work-updates', require('./routes/workUpdates'));
+  app.use('/api/ai', require('./routes/ai'));
 
   // Health check
   app.get('/api/health', (req, res) => {

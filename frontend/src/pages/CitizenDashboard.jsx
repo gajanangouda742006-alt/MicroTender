@@ -8,6 +8,7 @@ import StatusTimeline from '../components/StatusTimeline';
 import { StatusBadge } from '../components/StatusTimeline';
 import { FileText, MapPin, Camera, Send, Star, Trophy, Clock, CheckCircle, AlertTriangle, Briefcase, X, BrainCircuit, Sparkles, Zap } from 'lucide-react';
 import AIInsightsPanel from '../components/AIInsightsPanel';
+import SkeletonLoader from '../components/SkeletonLoader';
 import { motion, AnimatePresence } from 'framer-motion';
 
 function Overview() {
@@ -34,20 +35,24 @@ function Overview() {
         <p className="text-text-secondary text-sm font-medium">Track your civic complaints and contributions to the community</p>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {[
-          { label: 'Total', val: stats.total, icon: FileText, color: 'bg-blue-50 text-blue-600' },
-          { label: 'Pending', val: stats.pending, icon: Clock, color: 'bg-amber-50 text-amber-600' },
-          { label: 'Active', val: stats.active, icon: AlertTriangle, color: 'bg-purple-50 text-purple-600' },
-          { label: 'Resolved', val: stats.completed, icon: CheckCircle, color: 'bg-green-50 text-green-600' },
-        ].map((s, index) => (
-          <div key={s.label} className="glass-card p-6 border border-border-primary animate-fade-in" style={{ animationDelay: `${index * 0.1}s` }}>
-            <div className={`w-12 h-12 rounded-xl ${s.color} flex items-center justify-center mb-4`}>
-              <s.icon size={24} />
-            </div>
-            <p className="text-3xl font-bold text-text-primary mb-1">{s.val}</p>
-            <p className="text-sm text-text-tertiary font-bold uppercase tracking-wider">{s.label} Complaints</p>
-          </div>
-        ))}
+        {loading ? (
+          [1,2,3,4].map(i => <SkeletonLoader key={i} type="stat" />)
+        ) : (
+          [
+            { label: 'Total', val: stats.total, icon: FileText, color: 'bg-blue-50 text-blue-600' },
+            { label: 'Pending', val: stats.pending, icon: Clock, color: 'bg-amber-50 text-amber-600' },
+            { label: 'Active', val: stats.active, icon: AlertTriangle, color: 'bg-purple-50 text-purple-600' },
+            { label: 'Resolved', val: stats.completed, icon: CheckCircle, color: 'bg-green-50 text-green-600' },
+          ].map((s, index) => (
+            <motion.div key={s.label} whileHover={{ y: -10 }} className="glass-card hover-3d p-6 border border-border-primary animate-fade-in" style={{ animationDelay: `${index * 0.1}s` }}>
+              <div className={`w-12 h-12 rounded-xl ${s.color} flex items-center justify-center mb-4 shadow-inner`}>
+                <s.icon size={24} />
+              </div>
+              <p className="text-4xl font-extrabold text-text-primary mb-1">{s.val}</p>
+              <p className="text-sm text-text-tertiary font-bold uppercase tracking-wider">{s.label} Complaints</p>
+            </motion.div>
+          ))
+        )}
       </div>
       <div className="flex flex-col sm:flex-row gap-4">
         <button onClick={() => navigate('/citizen/new-complaint')} className="btn-primary px-8 py-4 font-bold shadow-soft flex items-center justify-center gap-3">
@@ -60,9 +65,8 @@ function Overview() {
           <FileText size={20} className="text-secondary-500" /> Recent Complaints
         </h2>
         {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-secondary-500"></div>
-            <span className="ml-3 text-text-tertiary font-medium">Loading activity...</span>
+          <div className="space-y-4">
+            {[1,2,3].map(i => <SkeletonLoader key={i} type="list" />)}
           </div>
         ) : complaints.length === 0 ? (
           <div className="text-center py-12">
@@ -75,8 +79,9 @@ function Overview() {
         ) : (
           <div className="space-y-4">
             {complaints.slice(0, 5).map((c, index) => (
-              <div key={c.complaint_id} onClick={() => navigate(`/citizen/complaint/${c.complaint_id}`)}
-                className="flex items-center justify-between p-5 bg-bg-secondary rounded-2xl hover:bg-white hover:shadow-md cursor-pointer transition-all border border-transparent hover:border-border-primary animate-fade-in group"
+              <motion.div key={c.complaint_id} onClick={() => navigate(`/citizen/complaint/${c.complaint_id}`)}
+                whileHover={{ scale: 1.01, x: 5 }}
+                className="flex items-center justify-between p-5 bg-bg-secondary rounded-2xl hover:bg-bg-tertiary hover-3d cursor-pointer transition-all border border-transparent hover:border-border-primary animate-fade-in group"
                 style={{ animationDelay: `${index * 0.1}s` }}>
                 <div className="flex items-center gap-5">
                   <div className="text-3xl grayscale group-hover:grayscale-0 transition-all">
@@ -88,7 +93,7 @@ function Overview() {
                   </div>
                 </div>
                 <StatusBadge status={c.status} />
-              </div>
+              </motion.div>
             ))}
           </div>
         )}
@@ -179,7 +184,7 @@ function NewComplaint() {
           fd.append('latitude', form.latitude);
           fd.append('longitude', form.longitude);
           if (image) fd.append('image', image);
-          
+
           const data = await api.analyzeComplaint(fd);
           setAiAnalysis(data.analysis);
           setDuplicates(data.duplicates);
@@ -257,40 +262,14 @@ function NewComplaint() {
             {categories.map(c => (
               <button key={c} type="button" onClick={() => setForm({ ...form, category: c })}
                 className={`py-4 px-4 rounded-2xl text-xs font-bold transition-all uppercase tracking-tighter ${form.category === c
-                    ? 'bg-secondary-500 text-white shadow-soft ring-4 ring-secondary-500/20'
-                    : 'bg-bg-secondary text-text-tertiary border border-border-primary hover:bg-bg-tertiary hover:border-secondary-500/50'
+                  ? 'bg-secondary-500 text-white shadow-soft ring-4 ring-secondary-500/20'
+                  : 'bg-bg-secondary text-text-tertiary border border-border-primary hover:bg-bg-tertiary hover:border-secondary-500/50'
                   }`}>
                 <span className="text-2xl block mb-2 grayscale group-hover:grayscale-0 transition-all">{{ 'pothole': '🕳️', 'streetlight': '💡', 'water_leakage': '💧', 'garbage': '🗑️', 'road_damage': '🛣️', 'drainage': '🌊', 'electrical': '⚡', 'other': '📋' }[c]}</span>
                 {c.replace('_', ' ')}
               </button>))}
           </div>
         </div>
-        <div className="glass-card p-8 border border-border-primary relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-3 opacity-10 group-focus-within:opacity-30 transition-opacity">
-            <BrainCircuit size={80} />
-          </div>
-          <label className="text-xs font-bold text-text-tertiary mb-3 block uppercase tracking-wider flex items-center gap-2">
-            <Zap size={14} className="text-secondary-500" /> Issue Description
-          </label>
-          <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} required rows={4}
-            className="input-futuristic w-full text-sm leading-relaxed relative z-10 bg-transparent"
-            placeholder="Please provide details about the problem (e.g. location details, severity)..." />
-        </div>
-
-        {/* AI Insights Section */}
-        <AnimatePresence>
-          {(isAnalyzing || aiAnalysis) && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="overflow-hidden"
-            >
-              <AIInsightsPanel analysis={aiAnalysis} duplicates={duplicates} isAnalyzing={isAnalyzing} />
-            </motion.div>
-          )}
-        </AnimatePresence>
-
         <div className="glass-card p-8 border border-border-primary">
           <label className="text-xs font-bold text-text-tertiary mb-4 block flex items-center gap-2 uppercase tracking-wider">
             <Camera size={18} className="text-accent-pink" /> Add Photo Evidence
@@ -321,7 +300,7 @@ function NewComplaint() {
               <div className="flex-1 h-[1px] bg-border-primary"></div>
             </div>
 
-            <button 
+            <button
               type="button"
               onClick={() => setShowCamera(true)}
               className="w-full py-4 bg-bg-secondary border border-border-primary rounded-2xl flex items-center justify-center gap-3 text-text-primary font-bold hover:bg-bg-tertiary hover:border-secondary-500 transition-all active:scale-95 group"
@@ -333,11 +312,37 @@ function NewComplaint() {
         </div>
 
         {showCamera && (
-          <CameraModal 
-            onCapture={(file) => setImage(file)} 
-            onClose={() => setShowCamera(false)} 
+          <CameraModal
+            onCapture={(file) => setImage(file)}
+            onClose={() => setShowCamera(false)}
           />
         )}
+
+        <div className="glass-card p-8 border border-border-primary relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-3 opacity-10 group-focus-within:opacity-30 transition-opacity">
+            <BrainCircuit size={80} />
+          </div>
+          <label className="text-xs font-bold text-text-tertiary mb-3 block uppercase tracking-wider flex items-center gap-2">
+            <Zap size={14} className="text-secondary-500" /> Issue Description
+          </label>
+          <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} required rows={4}
+            className="input-futuristic w-full text-sm leading-relaxed relative z-10 bg-transparent"
+            placeholder="Please provide details about the problem (e.g. location details, severity)..." />
+        </div>
+
+        {/* AI Insights Section */}
+        <AnimatePresence>
+          {(isAnalyzing || aiAnalysis) && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden"
+            >
+              <AIInsightsPanel analysis={aiAnalysis} duplicates={duplicates} isAnalyzing={isAnalyzing} />
+            </motion.div>
+          )}
+        </AnimatePresence>
         <div className="glass-card p-8 border border-border-primary">
           <label className="text-xs font-bold text-text-tertiary mb-4 block flex items-center gap-2 uppercase tracking-wider">
             <MapPin size={18} className="text-secondary-500" /> Pinpoint Location
@@ -472,111 +477,110 @@ function ComplaintDetail() {
               <span className="text-text-primary font-bold text-sm">{new Date(complaint.created_at).toLocaleString()}</span>
             </div>
           </div>
-            {/* Before and After Image Proof Verification */}
-            {(() => {
-              const afterUpdate = workUpdates?.find(wu => wu.image_url);
-              if (complaint.image_url && afterUpdate) {
-                return (
-                  <div className="mt-8 pt-8 border-t border-border-primary space-y-6">
-                    <p className="text-sm font-bold text-text-primary uppercase tracking-tight flex items-center gap-2">
-                      📸 Before & After Proof Verification
-                    </p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-2">
-                        <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest block text-center">Before (Citizen Report)</span>
-                        <img src={complaint.image_url} alt="Before" className="rounded-2xl w-full h-48 object-cover border-2 border-border-primary shadow-soft hover:shadow-lg transition-all" />
-                      </div>
-                      <div className="space-y-2">
-                        <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest block text-center">After (Work Completion: {afterUpdate.progress_percentage}%)</span>
-                        <img src={afterUpdate.image_url} alt="After" className="rounded-2xl w-full h-48 object-cover border-2 border-border-primary shadow-soft hover:shadow-lg transition-all" />
-                      </div>
-                    </div>
-                    <div className="p-5 bg-bg-secondary/60 rounded-2xl border border-border-primary space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">Inspection Status</span>
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-widest border ${
-                          afterUpdate.verification_status === 'suspicious' 
-                            ? 'bg-red-500/10 text-red-500 border-red-500/20' 
-                            : 'bg-green-500/10 text-green-500 border-green-500/20'
-                        }`}>
-                          {afterUpdate.verification_status === 'suspicious' ? '⚠ Suspicious Upload' : '✅ Verified Resolution'}
-                        </span>
-                      </div>
-                      <p className="text-xs text-text-secondary font-semibold leading-relaxed">
-                        <strong>AI Inspector Reasoning:</strong> {afterUpdate.verification_reasoning}
-                      </p>
-                    </div>
-                  </div>
-                );
-              } else if (complaint.image_url) {
-                return (
-                  <div className="mt-8">
-                    <p className="text-text-tertiary font-bold uppercase tracking-wider text-xs mb-3">Photo Evidence</p>
-                    <img src={complaint.image_url} alt="Evidence" className="rounded-2xl w-full max-h-80 object-cover border-2 border-border-primary shadow-soft hover:shadow-lg transition-shadow" />
-                  </div>
-                );
-              }
-              return null;
-            })()}
-
-            {workUpdates && workUpdates.length > 0 && (
-              <div className="mt-8 pt-8 border-t border-border-primary space-y-4">
-                <h3 className="text-sm font-bold text-text-primary flex items-center gap-2 uppercase tracking-tight">
-                  📈 Resolution Progress Updates
-                </h3>
-                <div className="space-y-3">
-                  {workUpdates.map((wu, i) => (
-                    <div key={wu.update_id} className="p-4 bg-bg-secondary/40 rounded-2xl border border-border-primary flex items-start gap-4 hover:bg-bg-secondary transition-all">
-                      <div className="bg-secondary-500/10 text-secondary-500 text-xs font-extrabold px-3 py-1.5 rounded-xl border border-secondary-500/20 shadow-sm">
-                        {wu.progress_percentage}%
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm text-text-primary font-bold">{wu.description}</p>
-                        <p className="text-[10px] text-text-tertiary font-extrabold mt-1.5 uppercase tracking-wider flex gap-3">
-                          <span>{new Date(wu.created_at).toLocaleString()}</span>
-                          <span>•</span>
-                          <span className="text-secondary-600 font-bold">{wu.company_name || wu.vendor_name}</span>
-                        </p>
-                        {wu.verification_status === 'suspicious' && (
-                          <span className="inline-block mt-2 text-[10px] font-extrabold text-red-500 bg-red-500/5 px-2 py-0.5 rounded-lg border border-red-500/10">
-                            ⚠ Suspicious Verification Alert
-                          </span>
-                        )}
-                      </div>
-                      {wu.image_url && (
-                        <img src={wu.image_url} alt="Progress proof" className="w-12 h-12 rounded-xl object-cover border border-border-primary cursor-pointer hover:scale-105 transition-transform" onClick={() => window.open(wu.image_url, '_blank')} />
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            {complaint.ai_analysis && (
-              <div className="mt-8 pt-8 border-t border-border-primary">
-                <h3 className="text-sm font-bold text-text-primary mb-4 flex items-center gap-2 uppercase tracking-tight">
-                  <BrainCircuit size={18} className="text-secondary-500" /> AI Verification Details
-                </h3>
-                <div className="bg-bg-secondary/50 rounded-2xl p-6 border border-border-primary space-y-4">
-                  <p className="text-sm text-text-secondary italic font-medium leading-relaxed">
-                    "{JSON.parse(complaint.ai_analysis).aiSummary}"
+          {/* Before and After Image Proof Verification */}
+          {(() => {
+            const afterUpdate = workUpdates?.find(wu => wu.image_url);
+            if (complaint.image_url && afterUpdate) {
+              return (
+                <div className="mt-8 pt-8 border-t border-border-primary space-y-6">
+                  <p className="text-sm font-bold text-text-primary uppercase tracking-tight flex items-center gap-2">
+                    📸 Before & After Proof Verification
                   </p>
-                  <div className="grid grid-cols-2 gap-4 text-xs">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-text-tertiary font-bold uppercase tracking-widest text-[9px]">Department</span>
-                      <span className="text-text-primary font-bold">{complaint.department}</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest block text-center">Before (Citizen Report)</span>
+                      <img src={complaint.image_url} alt="Before" className="rounded-2xl w-full h-48 object-cover border-2 border-border-primary shadow-soft hover:shadow-lg transition-all" />
                     </div>
-                    <div className="flex flex-col gap-1">
-                      <span className="text-text-tertiary font-bold uppercase tracking-widest text-[9px]">Risk Level</span>
-                      <span className={`font-bold ${JSON.parse(complaint.ai_analysis).riskLevel === 'high' ? 'text-red-500' : 'text-green-500'}`}>
-                        {JSON.parse(complaint.ai_analysis).riskLevel?.toUpperCase()}
+                    <div className="space-y-2">
+                      <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest block text-center">After (Work Completion: {afterUpdate.progress_percentage}%)</span>
+                      <img src={afterUpdate.image_url} alt="After" className="rounded-2xl w-full h-48 object-cover border-2 border-border-primary shadow-soft hover:shadow-lg transition-all" />
+                    </div>
+                  </div>
+                  <div className="p-5 bg-bg-secondary/60 rounded-2xl border border-border-primary space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">Inspection Status</span>
+                      <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-widest border ${afterUpdate.verification_status === 'suspicious'
+                          ? 'bg-red-500/10 text-red-500 border-red-500/20'
+                          : 'bg-green-500/10 text-green-500 border-green-500/20'
+                        }`}>
+                        {afterUpdate.verification_status === 'suspicious' ? '⚠ Suspicious Upload' : '✅ Verified Resolution'}
                       </span>
                     </div>
+                    <p className="text-xs text-text-secondary font-semibold leading-relaxed">
+                      <strong>AI Inspector Reasoning:</strong> {afterUpdate.verification_reasoning}
+                    </p>
+                  </div>
+                </div>
+              );
+            } else if (complaint.image_url) {
+              return (
+                <div className="mt-8">
+                  <p className="text-text-tertiary font-bold uppercase tracking-wider text-xs mb-3">Photo Evidence</p>
+                  <img src={complaint.image_url} alt="Evidence" className="rounded-2xl w-full max-h-80 object-cover border-2 border-border-primary shadow-soft hover:shadow-lg transition-shadow" />
+                </div>
+              );
+            }
+            return null;
+          })()}
+
+          {workUpdates && workUpdates.length > 0 && (
+            <div className="mt-8 pt-8 border-t border-border-primary space-y-4">
+              <h3 className="text-sm font-bold text-text-primary flex items-center gap-2 uppercase tracking-tight">
+                📈 Resolution Progress Updates
+              </h3>
+              <div className="space-y-3">
+                {workUpdates.map((wu, i) => (
+                  <div key={wu.update_id} className="p-4 bg-bg-secondary/40 rounded-2xl border border-border-primary flex items-start gap-4 hover:bg-bg-secondary transition-all">
+                    <div className="bg-secondary-500/10 text-secondary-500 text-xs font-extrabold px-3 py-1.5 rounded-xl border border-secondary-500/20 shadow-sm">
+                      {wu.progress_percentage}%
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm text-text-primary font-bold">{wu.description}</p>
+                      <p className="text-[10px] text-text-tertiary font-extrabold mt-1.5 uppercase tracking-wider flex gap-3">
+                        <span>{new Date(wu.created_at).toLocaleString()}</span>
+                        <span>•</span>
+                        <span className="text-secondary-600 font-bold">{wu.company_name || wu.vendor_name}</span>
+                      </p>
+                      {wu.verification_status === 'suspicious' && (
+                        <span className="inline-block mt-2 text-[10px] font-extrabold text-red-500 bg-red-500/5 px-2 py-0.5 rounded-lg border border-red-500/10">
+                          ⚠ Suspicious Verification Alert
+                        </span>
+                      )}
+                    </div>
+                    {wu.image_url && (
+                      <img src={wu.image_url} alt="Progress proof" className="w-12 h-12 rounded-xl object-cover border border-border-primary cursor-pointer hover:scale-105 transition-transform" onClick={() => window.open(wu.image_url, '_blank')} />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {complaint.ai_analysis && (
+            <div className="mt-8 pt-8 border-t border-border-primary">
+              <h3 className="text-sm font-bold text-text-primary mb-4 flex items-center gap-2 uppercase tracking-tight">
+                <BrainCircuit size={18} className="text-secondary-500" /> AI Verification Details
+              </h3>
+              <div className="bg-bg-secondary/50 rounded-2xl p-6 border border-border-primary space-y-4">
+                <p className="text-sm text-text-secondary italic font-medium leading-relaxed">
+                  "{JSON.parse(complaint.ai_analysis).aiSummary}"
+                </p>
+                <div className="grid grid-cols-2 gap-4 text-xs">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-text-tertiary font-bold uppercase tracking-widest text-[9px]">Department</span>
+                    <span className="text-text-primary font-bold">{complaint.department}</span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-text-tertiary font-bold uppercase tracking-widest text-[9px]">Risk Level</span>
+                    <span className={`font-bold ${JSON.parse(complaint.ai_analysis).riskLevel === 'high' ? 'text-red-500' : 'text-green-500'}`}>
+                      {JSON.parse(complaint.ai_analysis).riskLevel?.toUpperCase()}
+                    </span>
                   </div>
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
+        </div>
         <div className="glass-card p-8 border border-border-primary">
           <h2 className="text-xl font-bold text-text-primary mb-8 flex items-center gap-2 uppercase tracking-tight">
             <Clock size={22} className="text-secondary-500" /> Resolution Timeline
@@ -675,8 +679,8 @@ function Scoreboard() {
                   </td>
                   <td className="p-6">
                     <span className={`px-5 py-2 rounded-xl text-sm font-extrabold shadow-sm ${i === 0 ? 'bg-secondary-500 text-white' :
-                        i < 3 ? 'bg-secondary-500/10 text-secondary-500 border border-secondary-500/20' :
-                          'bg-bg-secondary text-text-secondary border border-border-primary'
+                      i < 3 ? 'bg-secondary-500/10 text-secondary-500 border border-secondary-500/20' :
+                        'bg-bg-secondary text-text-secondary border border-border-primary'
                       }`}>
                       {u.reputation_score}
                     </span>

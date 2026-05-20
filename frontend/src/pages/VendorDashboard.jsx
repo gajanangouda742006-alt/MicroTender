@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import logo from '../assets/logo.png';
 import { Link, Routes, Route } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import api from '../api';
 import MapPicker from '../components/MapPicker';
 import { StatusBadge } from '../components/StatusTimeline';
 import { MapPin, Briefcase, Send, User, Building, Star, DollarSign, CheckCircle, X, Camera, Loader } from 'lucide-react';
+import SkeletonLoader from '../components/SkeletonLoader';
 
 function WorkUpdateModal({ tenderId, onClose, onSuccess }) {
   const [description, setDescription] = useState('');
@@ -144,6 +147,17 @@ function Overview() {
     pending: jobs.applications?.filter(a => a.status === 'pending').length || 0,
   };
 
+  // Dummy data for the chart to simulate vendor earnings and velocity over time
+  const chartData = [
+    { name: 'Mon', jobs: 2, earnings: 1500 },
+    { name: 'Tue', jobs: 3, earnings: 3200 },
+    { name: 'Wed', jobs: 1, earnings: 800 },
+    { name: 'Thu', jobs: 4, earnings: 4500 },
+    { name: 'Fri', jobs: 5, earnings: 6000 },
+    { name: 'Sat', jobs: 2, earnings: 2100 },
+    { name: 'Sun', jobs: 6, earnings: 7500 },
+  ];
+
   return (
     <div className="animate-fade-in space-y-8">
       <div className="text-center">
@@ -169,16 +183,46 @@ function Overview() {
               { label: 'Completed', val: stats.completed, icon: CheckCircle, color: 'bg-green-500/10 text-green-500' },
               { label: 'Pending Bids', val: stats.pending, icon: Send, color: 'bg-accent-pink/10 text-accent-pink' },
             ].map((s, index) => (
-              <div key={s.label} className="glass-card p-6 border border-border-primary animate-fade-in" style={{ animationDelay: `${index * 0.1}s` }}>
+              <motion.div key={s.label} whileHover={{ y: -10 }} className="glass-card hover-3d p-6 border border-border-primary animate-fade-in" style={{ animationDelay: `${index * 0.1}s` }}>
                 <div className={`w-12 h-12 rounded-xl ${s.color} flex items-center justify-center mb-4`}>
                   <s.icon size={24} />
                 </div>
                 <p className="text-3xl font-bold text-text-primary mb-1">{s.val}</p>
                 <p className="text-xs text-text-tertiary font-bold uppercase tracking-wider">{s.label}</p>
-              </div>
+              </motion.div>
             ))}
           </div>
-          <div className="glass-card p-6 border border-border-primary">
+
+          {/* Real-Time Earnings Chart */}
+          <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="glass-card p-6 border border-border-primary hover-3d overflow-hidden relative group">
+            <div className="absolute inset-0 bg-gradient-to-r from-accent-purple/10 to-accent-cyan/10 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
+            <div className="flex justify-between items-center mb-6 relative z-10">
+              <h2 className="text-xl font-bold text-text-primary flex items-center gap-2">
+                <DollarSign size={20} className="text-green-500" /> Earnings & Velocity
+              </h2>
+            </div>
+            <div className="h-72 w-full relative z-10">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorEarnings" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#ffffff15" vertical={false} />
+                  <XAxis dataKey="name" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
+                  <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `₹${value}`} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)' }}
+                    itemStyle={{ color: '#fff', fontWeight: 'bold' }}
+                  />
+                  <Area type="monotone" dataKey="earnings" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorEarnings)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </motion.div>
+          <div className="glass-card hover-3d p-6 border border-border-primary">
             <h2 className="text-xl font-bold text-text-primary mb-6 flex items-center gap-2">
               <Briefcase size={20} className="text-secondary-500" /> Active Jobs
             </h2>
@@ -193,7 +237,7 @@ function Overview() {
             ) : (
               <div className="space-y-4">
                 {jobs.jobs?.filter(j => ['assigned', 'in_progress'].includes(j.status)).map((j, index) => (
-                  <div key={j.tender_id} className="flex items-center justify-between p-5 bg-bg-secondary rounded-2xl border border-border-primary hover:bg-bg-tertiary transition-all animate-fade-in" style={{ animationDelay: `${index * 0.1}s` }}>
+                  <motion.div key={j.tender_id} whileHover={{ x: 5 }} className="flex items-center justify-between p-5 bg-bg-secondary rounded-2xl border border-border-primary hover:bg-bg-tertiary hover-3d transition-all animate-fade-in" style={{ animationDelay: `${index * 0.1}s` }}>
                     <div className="flex-1 pr-4">
                       <p className="font-bold text-text-primary text-base mb-1">{j.description?.substring(0, 80)}...</p>
                       <p className="text-xs text-text-tertiary font-bold uppercase tracking-widest">{j.category} • <span className="text-green-600">₹{j.estimated_cost}</span></p>
@@ -217,7 +261,7 @@ function Overview() {
                         </button>
                       )}
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
             )}
@@ -253,8 +297,8 @@ function NearbyTenders() {
       </div>
       
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-secondary-500"></div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+          {[1,2,3,4].map(i => <SkeletonLoader key={i} type="card" />)}
         </div>
       ) : tenders.length === 0 ? (
         <div className="glass-card p-12 text-center border border-border-primary">
@@ -263,7 +307,7 @@ function NearbyTenders() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {tenders.map((t, index) => (
-            <div key={t.tender_id} className="glass-card p-6 border border-border-primary hover:border-secondary-500 transition-all group shadow-soft hover:shadow-lg animate-fade-in" style={{ animationDelay: `${index * 0.05}s` }}>
+            <motion.div key={t.tender_id} whileHover={{ scale: 1.02 }} className="glass-card hover-3d p-6 border border-border-primary hover:border-secondary-500 transition-all group shadow-soft hover:shadow-lg animate-fade-in" style={{ animationDelay: `${index * 0.05}s` }}>
               <div className="flex items-start justify-between mb-4">
                 <span className={`priority-${t.priority} px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest`}>{t.priority}</span>
                 <span className="text-xs font-bold text-text-tertiary flex items-center gap-1">
@@ -289,7 +333,7 @@ function NearbyTenders() {
                   View Details & Bid
                 </Link>
               )}
-            </div>
+            </motion.div>
           ))}
         </div>
       )}
@@ -322,7 +366,7 @@ function MyJobs() {
         ) : (
           <div className="space-y-4">
             {data.jobs?.map(j => (
-              <div key={j.tender_id} className="glass-card p-6 border border-border-primary hover:shadow-md transition-shadow bg-bg-secondary/30">
+              <motion.div key={j.tender_id} whileHover={{ x: 5 }} className="glass-card hover-3d p-6 border border-border-primary hover:shadow-md transition-shadow bg-bg-secondary/30">
                 <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
                   <div>
                     <p className="font-bold text-text-primary text-lg mb-2">{j.description?.substring(0, 100)}...</p>
@@ -348,7 +392,7 @@ function MyJobs() {
                     )}
                   </div>
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
         )}
@@ -363,7 +407,7 @@ function MyJobs() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {data.applications?.map(a => (
-              <div key={a.application_id} className="glass-card p-5 border border-border-primary flex items-center justify-between bg-bg-secondary/20">
+              <motion.div key={a.application_id} whileHover={{ scale: 1.02 }} className="glass-card hover-3d p-5 border border-border-primary flex items-center justify-between bg-bg-secondary/20">
                 <div className="pr-4">
                   <p className="font-bold text-text-primary text-sm mb-1 truncate max-w-[200px] md:max-w-[300px]">{a.description?.substring(0, 60)}...</p>
                   <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">{a.category} • Bid: <span className="text-green-600">₹{a.bid_amount}</span></p>
@@ -375,7 +419,7 @@ function MyJobs() {
                 }`}>
                   {a.status}
                 </span>
-              </div>
+              </motion.div>
             ))}
           </div>
         )}
@@ -413,70 +457,104 @@ function Profile() {
   };
 
   if (loading) return (
-    <div className="flex items-center justify-center py-20">
-      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-secondary-500"></div>
+    <div className="max-w-3xl mx-auto space-y-6 mt-10">
+      <SkeletonLoader type="card" />
+      <SkeletonLoader type="card" />
     </div>
   );
 
   return (
-    <div className="animate-fade-in max-w-3xl mx-auto">
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
+      className="max-w-3xl mx-auto"
+    >
       <div className="text-center mb-10">
-        <h1 className="text-3xl font-extrabold text-text-primary mb-2 flex items-center justify-center gap-3">
-          <Building size={32} className="text-secondary-500" /> Business Profile
+        <motion.div 
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.1, type: "spring", stiffness: 200 }}
+          className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-secondary-500/20 to-accent-purple/20 border border-secondary-500/30 mb-4 shadow-glass"
+        >
+          <Building size={32} className="text-secondary-400 drop-shadow-glow" />
+        </motion.div>
+        <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-text-secondary mb-2">
+          Business Profile
         </h1>
-        <p className="text-text-secondary font-medium">Configure your service details and coverage area</p>
+        <p className="text-text-tertiary font-medium">Configure your service details and coverage area</p>
       </div>
 
-      <div className="glass-card p-8 space-y-8 border border-border-primary shadow-soft">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-text-tertiary uppercase tracking-widest ml-1">Company Name</label>
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2, duration: 0.5 }}
+        className="glass-card p-8 space-y-8 border border-border-primary shadow-2xl relative overflow-hidden"
+      >
+        {/* Decorative background glow */}
+        <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-secondary-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
+          <motion.div whileFocus={{ scale: 1.02 }} className="space-y-2 group">
+            <label className="text-xs font-black text-text-tertiary uppercase tracking-widest ml-1 group-focus-within:text-secondary-400 transition-colors">Company Name</label>
             <input value={form.company_name} onChange={e => setForm({ ...form, company_name: e.target.value })}
-              className="input-futuristic w-full" placeholder="e.g. Acme Construction Co." />
-          </div>
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-text-tertiary uppercase tracking-widest ml-1">Primary Specialty</label>
-            <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}
-              className="input-futuristic w-full appearance-none">
-              {['pothole', 'streetlight', 'water_leakage', 'garbage', 'road_damage', 'drainage', 'electrical'].map(c =>
-                <option key={c} value={c} className="bg-bg-primary text-text-primary">{c.replace('_', ' ')}</option>)}
-            </select>
-          </div>
+              className="input-futuristic w-full bg-bg-primary/50 focus:bg-bg-primary transition-all" placeholder="e.g. Acme Construction Co." />
+          </motion.div>
+          <motion.div whileFocus={{ scale: 1.02 }} className="space-y-2 group">
+            <label className="text-xs font-black text-text-tertiary uppercase tracking-widest ml-1 group-focus-within:text-accent-purple transition-colors">Primary Specialty</label>
+            <div className="relative">
+              <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}
+                className="input-futuristic w-full appearance-none bg-bg-primary/50 focus:bg-bg-primary transition-all pr-10 cursor-pointer">
+                {['pothole', 'streetlight', 'water_leakage', 'garbage', 'road_damage', 'drainage', 'electrical'].map(c =>
+                  <option key={c} value={c} className="bg-bg-secondary text-text-primary">{c.replace('_', ' ')}</option>)}
+              </select>
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-text-tertiary">▼</div>
+            </div>
+          </motion.div>
         </div>
 
-        <div className="space-y-2">
-          <label className="text-xs font-bold text-text-tertiary uppercase tracking-widest ml-1">Office Address</label>
+        <motion.div whileFocus={{ scale: 1.01 }} className="space-y-2 relative z-10 group">
+          <label className="text-xs font-black text-text-tertiary uppercase tracking-widest ml-1 group-focus-within:text-secondary-400 transition-colors">Office Address</label>
           <input value={form.address} onChange={e => setForm({ ...form, address: e.target.value })}
-            className="input-futuristic w-full" placeholder="Full business address..." />
-        </div>
+            className="input-futuristic w-full bg-bg-primary/50 focus:bg-bg-primary transition-all" placeholder="Full business address..." />
+        </motion.div>
 
-        <div className="space-y-2">
-          <label className="text-xs font-bold text-text-tertiary uppercase tracking-widest ml-1">Years of Experience</label>
+        <motion.div whileFocus={{ scale: 1.02 }} className="space-y-2 relative z-10 group">
+          <label className="text-xs font-black text-text-tertiary uppercase tracking-widest ml-1 group-focus-within:text-accent-pink transition-colors">Years of Experience</label>
           <input type="number" value={form.experience_years} onChange={e => setForm({ ...form, experience_years: parseInt(e.target.value) || 0 })}
-            className="input-futuristic w-full" />
-        </div>
+            className="input-futuristic w-full bg-bg-primary/50 focus:bg-bg-primary transition-all max-w-[200px]" />
+        </motion.div>
 
-        <div className="space-y-4">
-          <label className="text-xs font-bold text-text-tertiary uppercase tracking-widest ml-1 flex items-center gap-2">
+        <div className="space-y-4 relative z-10">
+          <label className="text-xs font-black text-text-tertiary uppercase tracking-widest ml-1 flex items-center gap-2">
             <MapPin size={16} className="text-secondary-500" /> Service Operations Center
           </label>
-          <div className="border border-border-primary rounded-2xl overflow-hidden shadow-inner">
+          <div className="border border-border-primary rounded-2xl overflow-hidden shadow-inner ring-1 ring-white/5 hover:ring-secondary-500/50 transition-all duration-500">
             <MapPicker lat={form.latitude} lng={form.longitude} onLocationSelect={(lat, lng) => setForm({ ...form, latitude: lat, longitude: lng })} />
           </div>
         </div>
 
-        <button onClick={save} className="btn-primary w-full py-4 text-lg font-bold shadow-soft hover:shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3">
+        <motion.button 
+          whileHover={{ scale: 1.02, y: -2 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={save} 
+          className="btn-primary w-full py-4 text-lg font-bold shadow-[0_0_20px_rgba(var(--color-secondary-500),0.3)] hover:shadow-[0_0_30px_rgba(var(--color-secondary-500),0.5)] transition-all flex items-center justify-center gap-3 relative z-10 overflow-hidden group"
+        >
+          <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
           {isNew ? (
             <div className="flex items-center gap-2">
               <img src={logo} alt="" className="w-5 h-5 object-contain" />
               <span>Create Business Profile</span>
             </div>
           ) : (
-            <>💾 Save Changes</>
+            <div className="flex items-center gap-2">
+              <CheckCircle size={20} />
+              <span>Save Changes</span>
+            </div>
           )}
-        </button>
-      </div>
-    </div>
+        </motion.button>
+      </motion.div>
+    </motion.div>
   );
 }
 

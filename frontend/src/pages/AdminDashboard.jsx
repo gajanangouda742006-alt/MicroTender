@@ -84,7 +84,7 @@ function Overview() {
     maintainAspectRatio: !isFullscreen,
     plugins: {
       legend: { labels: { color: chartTextColor, font: { size: isFullscreen ? 14 : 10, weight: 'bold' } } },
-      tooltip: { 
+      tooltip: {
         backgroundColor: theme === 'dark' ? 'rgba(20, 20, 40, 0.9)' : 'rgba(255, 255, 255, 0.9)',
         titleColor: theme === 'dark' ? '#fff' : '#172337',
         bodyColor: theme === 'dark' ? '#fff' : '#172337',
@@ -143,14 +143,14 @@ function Overview() {
   return (
     <div className="animate-fade-in space-y-8">
       {fsChart && (
-        <FullscreenOverlay 
-          title={fsChart.title} 
+        <FullscreenOverlay
+          title={fsChart.title}
           onClose={() => setFsChart(null)}
           isMap={fsChart.id === 'map'}
-          chart={fsChart.id === 'trend' ? <Line key="fs-trend" data={trendChart()} options={fsChartOpts} /> : 
-                 fsChart.id === 'cat' ? <Bar key="fs-cat" data={catChart()} options={fsChartOpts} /> :
-                 fsChart.id === 'map' ? <MapCluster key="fs-map" items={allComplaints} height="100%" /> :
-                 <div className="max-w-[600px] w-full mx-auto"><Doughnut key="fs-prio" data={prioChart()} options={{...fsChartOpts, maintainAspectRatio: true}} /></div>}
+          chart={fsChart.id === 'trend' ? <Line key="fs-trend" data={trendChart()} options={fsChartOpts} /> :
+            fsChart.id === 'cat' ? <Bar key="fs-cat" data={catChart()} options={fsChartOpts} /> :
+              fsChart.id === 'map' ? <MapCluster key="fs-map" items={allComplaints} height="100%" /> :
+                <div className="max-w-[600px] w-full mx-auto"><Doughnut key="fs-prio" data={prioChart()} options={{ ...fsChartOpts, maintainAspectRatio: true }} /></div>}
         />
       )}
       <div className="text-center">
@@ -198,7 +198,7 @@ function Overview() {
             </button>
           </div>
           <div className="max-w-[200px] mx-auto">
-            <Doughnut data={prioChart()} options={{...chartOpts, maintainAspectRatio: true}} />
+            <Doughnut data={prioChart()} options={{ ...chartOpts, maintainAspectRatio: true }} />
           </div>
         </div>
       </div>
@@ -208,7 +208,7 @@ function Overview() {
         <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
           <BrainCircuit size={160} />
         </div>
-        
+
         <div className="flex flex-col md:flex-row items-center justify-between mb-8 gap-4 relative z-10">
           <div>
             <h2 className="text-2xl font-bold text-text-primary flex items-center gap-3">
@@ -238,14 +238,14 @@ function Overview() {
               </h3>
               <Bar data={aiDeptChart()} options={chartOpts} />
             </div>
-            
+
             <div className="grid grid-cols-3 gap-4">
-               {Object.entries(aiAnalytics?.riskDistribution || {}).map(([risk, count]) => (
-                 <div key={risk} className="glass-card p-4 text-center border border-border-primary bg-surface-secondary/30">
-                    <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest mb-1">{risk} Risk</p>
-                    <p className={`text-xl font-black ${risk === 'high' ? 'text-red-500' : risk === 'medium' ? 'text-amber-500' : 'text-green-500'}`}>{count}</p>
-                 </div>
-               ))}
+              {Object.entries(aiAnalytics?.riskDistribution || {}).map(([risk, count]) => (
+                <div key={risk} className="glass-card p-4 text-center border border-border-primary bg-surface-secondary/30">
+                  <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest mb-1">{risk} Risk</p>
+                  <p className={`text-xl font-black ${risk === 'high' ? 'text-red-500' : risk === 'medium' ? 'text-amber-500' : 'text-green-500'}`}>{count}</p>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -266,7 +266,7 @@ function Overview() {
                     <span className="text-text-primary">{stat.val}%</span>
                   </div>
                   <div className="w-full h-2 bg-bg-tertiary rounded-full overflow-hidden">
-                    <motion.div 
+                    <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${stat.val}%` }}
                       transition={{ duration: 1, delay: 0.5 }}
@@ -277,10 +277,10 @@ function Overview() {
               ))}
             </div>
             <div className="mt-8 p-4 rounded-xl bg-secondary-500/10 border border-secondary-500/20">
-               <p className="text-[10px] font-bold text-secondary-600 uppercase tracking-widest mb-1 flex items-center gap-1">
-                 <BrainCircuit size={10} /> AI Recommendation
-               </p>
-               <p className="text-xs text-text-secondary font-medium italic">"Increase Sanitation department resources in Zone-B based on high frequency of garbage reports predicted for next week."</p>
+              <p className="text-[10px] font-bold text-secondary-600 uppercase tracking-widest mb-1 flex items-center gap-1">
+                <BrainCircuit size={10} /> AI Recommendation
+              </p>
+              <p className="text-xs text-text-secondary font-medium italic">"Increase Sanitation department resources in Zone-B based on high frequency of garbage reports predicted for next week."</p>
             </div>
           </div>
         </div>
@@ -316,16 +316,16 @@ function Overview() {
             <div className="relative flex items-center justify-center">
               <svg className="w-36 h-36 transform -rotate-90">
                 <circle cx="72" cy="72" r="62" stroke="currentColor" className="text-border-primary/20" strokeWidth="12" fill="transparent" />
-                <circle 
-                  cx="72" 
-                  cy="72" 
-                  r="62" 
-                  stroke="currentColor" 
-                  className={systemRiskScore > 70 ? "text-red-500" : systemRiskScore > 40 ? "text-amber-500" : "text-green-500"} 
-                  strokeWidth="12" 
-                  fill="transparent" 
-                  strokeDasharray={2 * Math.PI * 62} 
-                  strokeDashoffset={2 * Math.PI * 62 * (1 - systemRiskScore / 100)} 
+                <circle
+                  cx="72"
+                  cy="72"
+                  r="62"
+                  stroke="currentColor"
+                  className={systemRiskScore > 70 ? "text-red-500" : systemRiskScore > 40 ? "text-amber-500" : "text-green-500"}
+                  strokeWidth="12"
+                  fill="transparent"
+                  strokeDasharray={2 * Math.PI * 62}
+                  strokeDashoffset={2 * Math.PI * 62 * (1 - systemRiskScore / 100)}
                   strokeLinecap="round"
                 />
               </svg>
@@ -335,11 +335,11 @@ function Overview() {
               </div>
             </div>
             <p className="text-xs text-text-secondary mt-6 font-medium leading-relaxed max-w-[200px]">
-              {systemRiskScore > 75 
+              {systemRiskScore > 75
                 ? "CRITICAL: Multiple high-severity fraud reports active. System under immediate administrative audit."
                 : systemRiskScore > 40
-                ? "WARNING: Moderate system risk alerts detected. Inspect flagged vendors."
-                : "SECURE: System threat level is minimal. Fully compliant operations."}
+                  ? "WARNING: Moderate system risk alerts detected. Inspect flagged vendors."
+                  : "SECURE: System threat level is minimal. Fully compliant operations."}
             </p>
           </div>
 
@@ -403,11 +403,10 @@ function Overview() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-widest ${
-                        zone.max_severity === 'critical' ? 'bg-red-500/20 text-red-400 border border-red-500/10' :
-                        zone.max_severity === 'high' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/10' :
-                        'bg-amber-500/20 text-amber-400 border border-amber-500/10'
-                      }`}>
+                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-widest ${zone.max_severity === 'critical' ? 'bg-red-500/20 text-red-400 border border-red-500/10' :
+                          zone.max_severity === 'high' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/10' :
+                            'bg-amber-500/20 text-amber-400 border border-amber-500/10'
+                        }`}>
                         {zone.max_severity}
                       </span>
                       <p className="text-[10px] text-text-secondary font-bold mt-1.5">{zone.alert_count} Alerts</p>
@@ -534,11 +533,10 @@ function ComplaintsMgmt() {
                     <div className="flex items-center justify-between text-xs text-text-tertiary">
                       <span>Assigned to: <strong>{tender.vendor_company}</strong></span>
                       {tender.verification_status && (
-                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider flex items-center gap-1 ${
-                          tender.verification_status === 'suspicious' 
-                            ? 'bg-red-500/20 text-red-400 border border-red-500/10' 
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider flex items-center gap-1 ${tender.verification_status === 'suspicious'
+                            ? 'bg-red-500/20 text-red-400 border border-red-500/10'
                             : 'bg-green-500/20 text-green-400 border border-green-500/10'
-                        }`}>
+                          }`}>
                           {tender.verification_status === 'suspicious' ? '⚠ Suspicious' : '✅ Verified'}
                         </span>
                       )}
@@ -651,7 +649,7 @@ function FraudAlerts() {
                 }`}><AlertTriangle size={20} /></div>
               <div><p className="font-medium text-sm text-text-primary">{a.type.replace(/_/g, ' ')}</p>
                 <p className="text-xs text-text-secondary">{a.user_name} ({a.user_role}) • {a.description?.substring(0, 60)}</p>
-<p className="text-xs text-text-tertiary">{new Date(a.created_at).toLocaleString()}</p></div>
+                <p className="text-xs text-text-tertiary">{new Date(a.created_at).toLocaleString()}</p></div>
             </div>
             <div className="flex items-center gap-3">
               <span className={`priority-${a.severity} px-2.5 py-1 rounded-full text-xs font-medium`}>{a.severity}</span>
@@ -709,15 +707,14 @@ function VerificationsCenter() {
   return (
     <div className="animate-fade-in space-y-6 relative">
       {toast && (
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: -50, scale: 0.9 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -20, scale: 0.9 }}
-          className={`fixed top-6 right-6 z-[9999] flex items-center gap-3 px-5 py-3.5 rounded-2xl border backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] ${
-            toast.type === 'success' 
-              ? 'bg-green-500/10 border-green-500/20 text-green-400' 
+          className={`fixed top-6 right-6 z-[9999] flex items-center gap-3 px-5 py-3.5 rounded-2xl border backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] ${toast.type === 'success'
+              ? 'bg-green-500/10 border-green-500/20 text-green-400'
               : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
-          }`}
+            }`}
         >
           <div className="w-2.5 h-2.5 rounded-full bg-current animate-pulse" />
           <span className="text-xs font-bold font-sans tracking-wide">{toast.message}</span>
@@ -725,15 +722,15 @@ function VerificationsCenter() {
       )}
 
       {activeImage && (
-        <div 
+        <div
           className="fixed inset-0 z-[9999] bg-black/90 backdrop-blur-2xl flex flex-col items-center justify-center p-6 md:p-12 transition-all duration-500"
           onClick={() => setActiveImage(null)}
         >
           <button className="absolute top-6 right-6 p-3 rounded-full bg-surface-secondary/40 border border-border-primary hover:bg-surface-secondary text-white transition-all shadow-md">
             <Minimize2 size={20} />
           </button>
-          
-          <motion.div 
+
+          <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             className="max-w-4xl w-full aspect-[4/3] rounded-3xl overflow-hidden border border-border-primary shadow-[0_25px_60px_rgba(0,0,0,0.8)] relative group bg-surface-primary"
@@ -761,11 +758,10 @@ function VerificationsCenter() {
             <button
               key={tab}
               onClick={() => setFilter(tab)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-300 ${
-                filter === tab
+              className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-300 ${filter === tab
                   ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
                   : 'text-text-secondary hover:text-text-primary hover:bg-surface-primary/20'
-              }`}
+                }`}
             >
               {tab}
             </button>
@@ -793,7 +789,7 @@ function VerificationsCenter() {
           ))}
         </div>
       ) : filteredItems.length === 0 ? (
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, scale: 0.98 }}
           animate={{ opacity: 1, scale: 1 }}
           className="glass-card p-16 flex flex-col items-center justify-center text-center border border-border-primary/40"
@@ -806,8 +802,8 @@ function VerificationsCenter() {
       ) : (
         <div className="grid grid-cols-1 gap-6">
           {filteredItems.map(item => (
-            <motion.div 
-              key={item.update_id} 
+            <motion.div
+              key={item.update_id}
               layout
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
@@ -865,11 +861,10 @@ function VerificationsCenter() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1 ${
-                        item.verification_status === 'suspicious'
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1 ${item.verification_status === 'suspicious'
                           ? 'bg-red-500/20 text-red-400 border border-red-500/10'
                           : 'bg-green-500/20 text-green-400 border border-green-500/10'
-                      }`}>
+                        }`}>
                         {item.verification_status === 'suspicious' ? '⚠ Suspicious' : '✅ Verified'}
                       </span>
                     </div>
@@ -899,7 +894,7 @@ function VerificationsCenter() {
                   </div>
 
                   <div className="flex gap-2.5 self-end">
-                    <button 
+                    <button
                       onClick={() => handleApprove(item.update_id)}
                       disabled={actioningId !== null}
                       className="px-4 py-2 bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white rounded-xl text-xs font-semibold shadow-md hover:shadow-green-500/20 transition-all duration-300 flex items-center gap-1.5"
@@ -913,7 +908,7 @@ function VerificationsCenter() {
                         'Approve Work'
                       )}
                     </button>
-                    <button 
+                    <button
                       onClick={() => handleFlag(item.update_id)}
                       disabled={actioningId !== null}
                       className="px-4 py-2 bg-red-600/10 hover:bg-red-600 disabled:opacity-50 text-red-500 hover:text-white border border-red-500/20 rounded-xl text-xs font-semibold transition-all duration-300 flex items-center gap-1.5"
