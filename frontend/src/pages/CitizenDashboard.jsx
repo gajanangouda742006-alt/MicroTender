@@ -703,6 +703,7 @@ function Scoreboard() {
 
 
 import NotificationsPanel from './NotificationsPanel';
+import Profile from './Profile';
 
 export default function CitizenDashboard() {
   return (
@@ -713,6 +714,7 @@ export default function CitizenDashboard() {
       <Route path="complaint/:id" element={<ComplaintDetail />} />
       <Route path="scoreboard" element={<Scoreboard />} />
       <Route path="notifications" element={<NotificationsPanel />} />
+      <Route path="profile" element={<Profile />} />
     </Routes>
   );
 }

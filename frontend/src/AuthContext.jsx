@@ -54,6 +54,10 @@ export function AuthProvider({ children }) {
     return data.user;
   };
 
+  const updateUser = (updatedFields) => {
+    setUser((prev) => ({ ...prev, ...updatedFields }));
+  };
+
   const logout = async () => {
     const refreshToken = localStorage.getItem('refreshToken');
     if (refreshToken) {
@@ -65,7 +69,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

@@ -204,4 +204,47 @@ router.get('/me', authenticate, async (req, res) => {
   }
 });
 
+// PUT /api/auth/me
+router.put('/me', authenticate, async (req, res) => {
+  try {
+    const { name, phone, govt_id_type, govt_id_number } = req.body;
+    const updates = [];
+    const values = [];
+
+    if (name) {
+      updates.push('name = ?');
+      values.push(name);
+    }
+    if (phone) {
+      updates.push('phone = ?');
+      values.push(phone);
+    }
+    if (govt_id_type) {
+      updates.push('govt_id_type = ?');
+      values.push(govt_id_type);
+    }
+    if (govt_id_number) {
+      updates.push('govt_id_number = ?');
+      values.push(govt_id_number);
+    }
+
+    if (!updates.length) {
+      return res.status(400).json({ error: 'No profile fields provided.' });
+    }
+
+    values.push(req.user.user_id);
+    await db.run(`UPDATE users SET ${updates.join(', ')} WHERE user_id = ?`, values);
+
+    const updatedUser = await db.get(
+      'SELECT user_id, name, email, phone, role, govt_id_type, govt_id_number, reputation_score, is_active, created_at FROM users WHERE user_id = ?',
+      [req.user.user_id]
+    );
+
+    res.json({ user: updatedUser });
+  } catch (err) {
+    console.error('Update profile error:', err);
+    res.status(500).json({ error: 'Failed to update profile.' });
+  }
+});
+
 module.exports = router;

@@ -934,6 +934,7 @@ function VerificationsCenter() {
 }
 
 import NotificationsPanel from './NotificationsPanel';
+import Profile from './Profile';
 
 export default function AdminDashboard() {
   return (
@@ -944,6 +945,7 @@ export default function AdminDashboard() {
       <Route path="fraud" element={<FraudAlerts />} />
       <Route path="verifications" element={<VerificationsCenter />} />
       <Route path="notifications" element={<NotificationsPanel />} />
+      <Route path="profile" element={<Profile />} />
     </Routes>
   );
 }
