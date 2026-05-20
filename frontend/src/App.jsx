@@ -7,6 +7,7 @@ import CitizenDashboard from './pages/CitizenDashboard';
 import VendorDashboard from './pages/VendorDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import BiddingPage from './pages/BiddingPage';
+import { Toaster } from 'react-hot-toast';
 
 function ProtectedRoute({ children, roles }) {
   const { user, loading } = useAuth();
@@ -28,6 +29,7 @@ function RoleRedirect() {
 export default function App() {
   return (
     <ThemeProvider>
+      <Toaster position="top-right" toastOptions={{ style: { background: '#1e1b4b', color: '#fff', border: '1px solid #4f46e5' } }} />
       <Routes>
         <Route path="/login" element={<Auth mode="login" />} />
         <Route path="/register" element={<Auth mode="register" />} />

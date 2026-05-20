@@ -82,10 +82,18 @@ const api = {
 
   // Complaints
   getComplaints: (params = '') => request(`/complaints${params ? '?' + params : ''}`),
+  getMyComplaints: () => request(`/complaints/my`),
   getComplaint: (id) => request(`/complaints/${id}`),
   createComplaint: (formData) => request('/complaints', { method: 'POST', body: formData, headers: {} }),
+  deleteComplaint: (id) => request(`/complaints/${id}`, { method: 'DELETE' }),
   analyzeComplaint: (formData) => request('/complaints/analyze', { method: 'POST', body: formData, headers: {} }),
-  rateComplaint: (id, score, feedback) => request(`/complaints/${id}/rate`, { method: 'POST', body: JSON.stringify({ score, feedback }) }),
+  rateComplaint: (id, score, feedback, proofImage) => {
+    const formData = new FormData();
+    formData.append('score', score);
+    if (feedback) formData.append('feedback', feedback);
+    if (proofImage) formData.append('proof', proofImage);
+    return request(`/complaints/${id}/rate`, { method: 'POST', body: formData });
+  },
   getScoreboard: () => request('/complaints/scoreboard/citizens'),
 
   // Tenders
@@ -99,21 +107,33 @@ const api = {
   getVendorProfile: () => request('/vendors/profile'),
   updateVendorProfile: (data) => request('/vendors/profile', { method: 'PUT', body: JSON.stringify(data) }),
   getNearbyTenders: (radius) => request(`/vendors/nearby-tenders?radius=${radius || 5}`),
-  applyToTender: (tenderId, bid_amount, proposal) => request(`/vendors/apply/${tenderId}`, { method: 'POST', body: JSON.stringify({ bid_amount, proposal }) }),
+  applyToTender: (tenderId, data) => request(`/vendors/apply/${tenderId}`, { method: 'POST', body: JSON.stringify(data) }),
   getMyJobs: () => request('/vendors/my-jobs'),
+  submitCompletionProof: (tenderId, formData) => {
+    const token = localStorage.getItem('token');
+    return fetch(`${API_URL}/tenders/${tenderId}/complete`, {
+      method: 'PUT',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: formData
+    }).then(r => r.json());
+  },
 
   // Work Updates
   submitWorkUpdate: (formData) => request('/work-updates', { method: 'POST', body: formData, headers: {} }),
   getWorkUpdates: (tenderId) => request(`/work-updates/${tenderId}`),
 
   // Admin
-  getDashboard: () => request('/admin/dashboard'),
+  getTenderDetails: (id) => request(`/tenders/${id}`),
+  adminAction: (tender_id, action, notes) => request('/admin/tender-action', { method: 'POST', body: JSON.stringify({ tender_id, action, notes }) }),
+  autoAssign: (tender_id) => request(`/admin/auto-assign/${tender_id}`, { method: 'POST' }),
   assignVendor: (tender_id, vendor_id) => request('/admin/assign-vendor', { method: 'POST', body: JSON.stringify({ tender_id, vendor_id }) }),
-  autoAssign: (tenderId) => request(`/admin/auto-assign/${tenderId}`, { method: 'POST' }),
+  adminVerifyCompletion: (tenderId) => request(`/admin/tenders/${tenderId}/verify`, { method: 'PUT' }),
+  getDashboard: () => request('/admin/dashboard'),
   updateTenderCost: (id, manual_cost, selected_cost_type) => request(`/admin/tender/${id}/cost`, { method: 'PATCH', body: JSON.stringify({ manual_cost, selected_cost_type }) }),
-  adminAction: (tenderId, action, notes) => request(`/admin/action/${tenderId}`, { method: 'POST', body: JSON.stringify({ action, notes }) }),
   getFraudAlerts: (resolved) => request(`/admin/fraud-alerts${resolved !== undefined ? '?resolved=' + resolved : ''}`),
   resolveFraudAlert: (id) => request(`/admin/fraud-alerts/${id}/resolve`, { method: 'PATCH' }),
+  approveComplaint: (id) => request(`/admin/complaint/${id}/approve`, { method: 'POST' }),
+  rejectComplaint: (id, reason) => request(`/admin/complaint/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }),
   getVendorDetails: (id) => request(`/admin/vendor/${id}/details`),
   getNearbyVendors: (lat, lon, category) => request(`/admin/nearby-vendors?lat=${lat}&lon=${lon}${category ? '&category=' + category : ''}`),
   getAllVendors: () => request('/vendors/all'),

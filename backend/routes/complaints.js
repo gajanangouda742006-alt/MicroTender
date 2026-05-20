@@ -4,7 +4,7 @@ const { authenticate, authorize } = require('../middleware/auth');
 const upload = require('../middleware/upload');
 const { runComplaintChecks, updateReputation, validateImageWithAI } = require('../services/antifraud');
 const { estimateCostAI, determinePriority } = require('../services/costEstimation');
-const { analyzeComplaint, detectDuplicates } = require('../services/aiAnalyzer');
+const { analyzeComplaint, detectDuplicates, analyzeReviewSentiment } = require('../services/aiAnalyzer');
 const notifications = require('./notifications');
 
 const router = express.Router();
@@ -27,60 +27,29 @@ router.post('/analyze', authenticate, authorize('citizen'), upload.single('image
 });
 
 // POST /api/complaints
+const { submitComplaint } = require('../services/complaintService');
+
 router.post('/', authenticate, authorize('citizen'), upload.single('image'), async (req, res) => {
   try {
-    const { category, description, latitude, longitude, user_lat, user_lon } = req.body;
-    if (!category || !description)
-      return res.status(400).json({ error: 'Category and description are required.' });
+    const data = {
+      ...req.body,
+      imageUrl: req.file ? `uploads/${req.file.filename}` : null
+    };
 
-    const lat = parseFloat(latitude) || null;
-    const lon = parseFloat(longitude) || null;
-    const imageUrl = req.file ? `uploads/${req.file.filename}` : null;
-
-    const fraudCheck = await runComplaintChecks(
-      req.user.user_id, description, lat, lon, imageUrl,
-      parseFloat(user_lat) || null, parseFloat(user_lon) || null
-    );
-    if (!fraudCheck.passed) {
-      return res.status(429).json({ error: 'Complaint blocked by anti-fraud system', reasons: fraudCheck.blocks });
-    }
-
-    const aiAnalysis = await analyzeComplaint(description, imageUrl ? `/${imageUrl}` : null);
-    const duplicateCheck = await detectDuplicates(lat, lon, aiAnalysis.category, description);
-
-    const result = await db.run(
-      'INSERT INTO complaints (user_id, category, description, latitude, longitude, image_url, ai_analysis, department) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [req.user.user_id, aiAnalysis.category, description, lat, lon,
-        imageUrl ? `/${imageUrl}` : null, JSON.stringify(aiAnalysis), aiAnalysis.department]
-    );
-
-    const complaint = await db.get('SELECT * FROM complaints WHERE complaint_id = ?', [result.insertId]);
-
-    const priority = aiAnalysis.priority || determinePriority(aiAnalysis.category, description);
-    const estimatedCost = aiAnalysis.estimatedCost || (await estimateCostAI(aiAnalysis.category, description)).estimatedCost;
-
-    await db.run(
-      'INSERT INTO micro_tenders (complaint_id, estimated_cost, priority) VALUES (?, ?, ?)',
-      [complaint.complaint_id, estimatedCost, priority]
-    );
-
-    await db.run("UPDATE complaints SET status = 'tender_created' WHERE complaint_id = ?", [complaint.complaint_id]);
-    await updateReputation(req.user.user_id, 'valid_complaint');
-
-    const tender = await db.get('SELECT * FROM micro_tenders WHERE complaint_id = ?', [complaint.complaint_id]);
-
-    await notifications.sendNotification(
-      req.app, req.user.user_id, 'Complaint Received',
-      `Your complaint for ${aiAnalysis.category} has been received and assigned to ${aiAnalysis.department}.`, 'success'
-    );
+    const result = await submitComplaint(req.app, req.user.user_id, data);
 
     res.status(201).json({
-      message: 'Complaint submitted and AI micro-tender generated',
-      complaint: { ...complaint, status: 'tender_created' },
-      tender, aiAnalysis, duplicates: duplicateCheck, fraudWarnings: fraudCheck.warnings
+      message: 'Complaint submitted and is under admin review',
+      complaint: result.complaint,
+      aiAnalysis: result.aiAnalysis,
+      duplicates: result.duplicates,
+      fraudWarnings: result.fraudWarnings
     });
   } catch (err) {
     console.error('Complaint error:', err);
+    if (err.status) {
+      return res.status(err.status).json({ error: err.error, reasons: err.reasons });
+    }
     res.status(500).json({ error: 'Failed to submit complaint.' });
   }
 });
@@ -143,6 +112,82 @@ router.get('/scoreboard/citizens', authenticate, async (req, res) => {
   }
 });
 
+// GET /api/complaints/my
+router.get('/my', authenticate, authorize('citizen'), async (req, res) => {
+  try {
+    console.log('=== GET /api/complaints/my ===');
+    console.log('Authenticated User:', JSON.stringify(req.user));
+
+    // First ensure the columns exist
+    const columnsToAdd = [
+      { col: 'verification_status', def: "VARCHAR(50) DEFAULT 'pending'" },
+      { col: 'completion_image', def: 'VARCHAR(255)' },
+      { col: 'completion_note', def: 'TEXT' },
+    ];
+    for (const c of columnsToAdd) {
+      try {
+        await db.run(`ALTER TABLE micro_tenders ADD COLUMN ${c.col} ${c.def}`);
+      } catch (e) { /* column already exists */ }
+    }
+
+    const complaints = await db.all(`
+      SELECT
+        c.complaint_id,
+        c.description,
+        c.category,
+        c.created_at,
+        c.status,
+        c.image_url,
+        c.latitude,
+        c.longitude,
+        c.ai_analysis,
+        c.department,
+        mt.tender_id,
+        mt.status as tender_status,
+        mt.verification_status,
+        mt.completion_image,
+        mt.completion_note,
+        u.name AS vendor_name,
+        u.phone as vendor_phone,
+        v.company_name,
+        v.rating_avg,
+        (SELECT COUNT(*) FROM ratings WHERE complaint_id = c.complaint_id) as has_rated
+      FROM complaints c
+      LEFT JOIN micro_tenders mt ON c.complaint_id = mt.complaint_id
+      LEFT JOIN vendors v ON mt.assigned_vendor_id = v.vendor_id
+      LEFT JOIN users u ON v.user_id = u.user_id
+      WHERE c.user_id = ?
+      ORDER BY c.created_at DESC
+    `, [req.user.user_id]);
+
+    console.log('Complaints found:', complaints.length);
+    res.json({ complaints: complaints || [] });
+  } catch (err) {
+    console.error('Get my complaints error:', err);
+    res.status(500).json({ error: 'Failed to get complaints.', details: err.message });
+  }
+});
+
+// DELETE /api/complaints/:id
+router.delete('/:id', authenticate, authorize('citizen'), async (req, res) => {
+  try {
+    const complaint = await db.get(
+      'SELECT * FROM complaints WHERE complaint_id = ? AND user_id = ?',
+      [req.params.id, req.user.user_id]
+    );
+    if (!complaint) return res.status(404).json({ error: 'Complaint not found.' });
+
+    // Delete associated tender first (cascade should handle, but be safe)
+    await db.run('DELETE FROM micro_tenders WHERE complaint_id = ?', [req.params.id]);
+    await db.run('DELETE FROM complaints WHERE complaint_id = ? AND user_id = ?', [req.params.id, req.user.user_id]);
+
+    res.json({ message: 'Complaint deleted successfully' });
+  } catch (err) {
+    console.error('Delete complaint error:', err);
+    res.status(500).json({ error: 'Failed to delete complaint.' });
+  }
+});
+
 // GET /api/complaints/:id
 router.get('/:id', authenticate, async (req, res) => {
   try {
@@ -190,9 +235,10 @@ router.get('/:id', authenticate, async (req, res) => {
 });
 
 // POST /api/complaints/:id/rate
-router.post('/:id/rate', authenticate, authorize('citizen'), async (req, res) => {
+router.post('/:id/rate', authenticate, authorize('citizen'), upload.single('proof'), async (req, res) => {
   try {
     const { score, feedback } = req.body;
+    const proofImage = req.file ? `/uploads/${req.file.filename}` : null;
     if (!score || score < 1 || score > 5)
       return res.status(400).json({ error: 'Score must be between 1 and 5.' });
 
@@ -201,11 +247,13 @@ router.post('/:id/rate', authenticate, authorize('citizen'), async (req, res) =>
       [req.params.id, req.user.user_id]
     );
     if (!complaint) return res.status(404).json({ error: 'Complaint not found.' });
-    if (complaint.status !== 'completed')
-      return res.status(400).json({ error: 'Can only rate completed complaints.' });
 
     const tender = await db.get('SELECT * FROM micro_tenders WHERE complaint_id = ?', [complaint.complaint_id]);
     if (!tender?.assigned_vendor_id) return res.status(400).json({ error: 'No vendor assigned.' });
+    if (tender.status !== 'completed' && tender.status !== 'closed')
+      return res.status(400).json({ error: 'Can only rate completed work.' });
+    if (tender.verification_status !== 'verified')
+      return res.status(400).json({ error: 'Work must be verified by admin first.' });
 
     const existing = await db.get(
       'SELECT rating_id FROM ratings WHERE complaint_id = ? AND user_id = ?',
@@ -213,17 +261,34 @@ router.post('/:id/rate', authenticate, authorize('citizen'), async (req, res) =>
     );
     if (existing) return res.status(409).json({ error: 'Already rated.' });
 
+    const sentiment = await analyzeReviewSentiment(feedback);
+    
     await db.run(
-      'INSERT INTO ratings (vendor_id, complaint_id, user_id, score, feedback) VALUES (?, ?, ?, ?, ?)',
-      [tender.assigned_vendor_id, complaint.complaint_id, req.user.user_id, score, feedback || null]
+      'INSERT INTO ratings (vendor_id, complaint_id, user_id, score, feedback, proof_image, ai_sentiment, is_verified) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [tender.assigned_vendor_id, complaint.complaint_id, req.user.user_id, score, feedback || null, proofImage, sentiment, true]
     );
 
+    // Dynamic vendor score calculation
     const avgResult = await db.get('SELECT AVG(score) as avg, COUNT(*) as count FROM ratings WHERE vendor_id = ?', [tender.assigned_vendor_id]);
-    await db.run('UPDATE vendors SET rating_avg = ?, total_ratings = ? WHERE vendor_id = ?',
-      [Math.round(avgResult.avg * 10) / 10, avgResult.count, tender.assigned_vendor_id]);
+    const avgRating = Math.round((avgResult.avg || 0) * 10) / 10;
+    const completedCount = await db.get('SELECT COUNT(*) as count FROM micro_tenders WHERE assigned_vendor_id = ? AND verification_status = "verified"', [tender.assigned_vendor_id]);
+    const fraudCount = await db.get('SELECT COUNT(*) as count FROM fraud_logs WHERE user_id = (SELECT user_id FROM vendors WHERE vendor_id = ?)', [tender.assigned_vendor_id]);
+    const rejectedCount = await db.get('SELECT COUNT(*) as count FROM micro_tenders WHERE assigned_vendor_id = ? AND verification_status = "rejected"', [tender.assigned_vendor_id]);
+    
+    const vendorScore = (avgRating * 20) + (completedCount.count * 2) - (fraudCount.count * 10) - (rejectedCount.count * 5);
+    
+    await db.run('UPDATE vendors SET rating_avg = ?, total_ratings = ?, total_jobs_completed = ?, vendor_score = ? WHERE vendor_id = ?',
+      [avgRating, avgResult.count, completedCount.count, vendorScore, tender.assigned_vendor_id]);
 
     await updateReputation(req.user.user_id, score >= 3 ? 'good_rating' : 'bad_rating');
-    res.json({ message: 'Rating submitted successfully' });
+    
+    // Notify vendor
+    const vendorUser = await db.get('SELECT user_id FROM vendors WHERE vendor_id = ?', [tender.assigned_vendor_id]);
+    if (vendorUser) {
+       await notifications.sendNotification(req.app, vendorUser.user_id, 'Review Submitted', `A citizen has rated your work ${score}/5 stars.`, 'success');
+    }
+
+    res.json({ message: 'Rating submitted successfully', sentiment });
   } catch (err) {
     console.error('Rating error:', err);
     res.status(500).json({ error: 'Failed to submit rating.' });

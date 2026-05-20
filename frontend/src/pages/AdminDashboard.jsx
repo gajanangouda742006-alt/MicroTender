@@ -470,6 +470,7 @@ function ComplaintsMgmt() {
   const [tenders, setTenders] = useState([]);
   const [filter, setFilter] = useState('');
   const [loading, setLoading] = useState(true);
+  const [verifyingTender, setVerifyingTender] = useState(null);
 
   useEffect(() => {
     Promise.all([api.getComplaints(filter ? `status=${filter}` : ''), api.getTenders()])
@@ -486,6 +487,16 @@ function ComplaintsMgmt() {
     const notes = prompt('Notes (optional):');
     try { await api.adminAction(tenderId, action, notes); alert('Done!'); window.location.reload(); }
     catch (err) { alert(err.message); }
+  };
+
+  const handleVerifyWork = async (tenderId) => {
+    try {
+      await api.adminVerifyCompletion(tenderId);
+      alert('Work verified successfully! Tender closed & payment authorized.');
+      window.location.reload();
+    } catch (err) {
+      alert(err.message);
+    }
   };
 
   return (
@@ -525,7 +536,12 @@ function ComplaintsMgmt() {
                         <button onClick={() => handleAction(tender.tender_id, 'reassign')} className="px-3 py-1 bg-amber-600 rounded-lg text-xs text-white">Reassign</button>
                         <button onClick={() => handleAction(tender.tender_id, 'warn_vendor')} className="px-3 py-1 bg-red-600 rounded-lg text-xs text-white">Warn</button>
                       </>}
-                      {tender.status !== 'completed' && tender.status !== 'cancelled' &&
+                      {tender.status === 'completed' && (
+                        <button onClick={() => setVerifyingTender(tender)} className="px-3 py-1 bg-green-500 rounded-lg text-xs text-white shadow-soft font-bold">
+                          Verify Completion
+                        </button>
+                      )}
+                      {tender.status !== 'completed' && tender.status !== 'cancelled' && tender.status !== 'closed' &&
                         <button onClick={() => handleAction(tender.tender_id, 'cancel')} className="btn-secondary px-3 py-1 rounded-lg text-xs hover:bg-surface-secondary transition-all">Cancel</button>}
                     </div>
                   </div>
@@ -552,6 +568,55 @@ function ComplaintsMgmt() {
             </div>
           );
         })}</div>}
+
+        {verifyingTender && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="glass-card max-w-4xl w-full p-8 border border-border-primary shadow-2xl animate-scale-up">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-text-primary">Verify Completion: Tender #{verifyingTender.tender_id}</h3>
+                <button onClick={() => setVerifyingTender(null)} className="text-text-tertiary hover:text-white transition-colors">✕</button>
+              </div>
+              <div className="grid grid-cols-2 gap-6 mb-6">
+                <div className="space-y-2">
+                  <p className="text-xs font-bold text-text-tertiary uppercase tracking-widest text-center">Original Issue (Before)</p>
+                  <div className="border border-border-primary rounded-xl overflow-hidden aspect-video relative bg-bg-secondary/50">
+                    {verifyingTender.original_image ? (
+                      <img src={`http://localhost:5000${verifyingTender.original_image}`} className="w-full h-full object-cover" alt="Before" />
+                    ) : <p className="text-text-tertiary text-center mt-20">No Image</p>}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-xs font-bold text-text-tertiary uppercase tracking-widest text-center">Completion Proof (After)</p>
+                  <div className="border border-border-primary rounded-xl overflow-hidden aspect-video relative bg-bg-secondary/50">
+                    {verifyingTender.completion_image ? (
+                      <img src={`http://localhost:5000${verifyingTender.completion_image}`} className="w-full h-full object-cover" alt="After" />
+                    ) : <p className="text-text-tertiary text-center mt-20">No Image</p>}
+                  </div>
+                </div>
+              </div>
+              <div className="bg-bg-secondary/30 p-4 rounded-xl border border-border-primary mb-6">
+                <p className="text-sm font-bold text-text-primary mb-1">Vendor's Note:</p>
+                <p className="text-text-secondary text-sm italic">"{verifyingTender.completion_note || 'None provided'}"</p>
+                {verifyingTender.verification_reasoning && (
+                  <div className="mt-4 pt-4 border-t border-border-primary/50">
+                    <p className="text-[10px] font-bold text-secondary-500 uppercase tracking-widest flex items-center gap-2 mb-1">
+                      <Sparkles size={12} /> AI Verification Assessment
+                    </p>
+                    <p className="text-sm text-text-primary">{verifyingTender.verification_reasoning}</p>
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-4">
+                <button onClick={() => handleVerifyWork(verifyingTender.tender_id)} className="flex-1 py-3 bg-green-600 hover:bg-green-500 text-white font-bold rounded-xl shadow-soft">
+                  Approve & Release Payment
+                </button>
+                <button onClick={() => { alert('Not implemented: rejection flow'); setVerifyingTender(null); }} className="px-6 py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl shadow-soft">
+                  Reject Proof
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
     </div>
   );
 }

@@ -10,6 +10,7 @@ export default function BiddingPage() {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [bidAmount, setBidAmount] = useState('');
+  const [estimatedDays, setEstimatedDays] = useState('');
   const [proposal, setProposal] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -25,7 +26,7 @@ export default function BiddingPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await api.applyToTender(id, { bid_amount: bidAmount, proposal });
+      await api.applyToTender(id, { bid_amount: bidAmount, estimated_days: estimatedDays, proposal });
       alert('Bid submitted successfully!');
       navigate('/vendor');
     } catch (err) {
@@ -66,7 +67,7 @@ export default function BiddingPage() {
             {tender.image_url && (
               <div className="rounded-3xl overflow-hidden border-2 border-border-primary shadow-lg group">
                 <img
-                  src={`${import.meta.env.VITE_API_URL}${tender.image_url}`}
+                  src={`http://localhost:5000${tender.image_url}`}
                   alt="Evidence"
                   className="w-full object-cover group-hover:scale-105 transition-transform duration-700"
                 />
@@ -130,6 +131,18 @@ export default function BiddingPage() {
                   </div>
                 </div>
                 <div>
+                  <label className="text-xs font-bold text-text-tertiary mb-2 block uppercase tracking-widest ml-1">Estimated Days</label>
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    value={estimatedDays}
+                    onChange={e => setEstimatedDays(e.target.value)}
+                    className="input-futuristic w-full"
+                    placeholder="e.g. 3"
+                  />
+                </div>
+                <div>
                   <label className="text-xs font-bold text-text-tertiary mb-2 block uppercase tracking-widest ml-1">Strategy & Proposal</label>
                   <textarea
                     required
@@ -169,11 +182,16 @@ export default function BiddingPage() {
                 </div>
               ) : (
                 applications.map((app, idx) => (
-                  <div key={app.application_id} className="p-4 bg-bg-secondary rounded-2xl flex items-center justify-between border border-border-primary shadow-sm hover:border-secondary-500 transition-colors">
+                  <div key={app.application_id} className="p-4 bg-bg-secondary rounded-2xl flex items-center justify-between border border-border-primary shadow-sm hover:border-secondary-500 transition-colors relative overflow-hidden">
+                    {idx === 0 && (
+                      <div className="absolute top-0 right-0 bg-green-500 text-white text-[9px] font-bold uppercase px-2 py-0.5 rounded-bl-lg">
+                        Lowest Bid
+                      </div>
+                    )}
                     <div>
                       <p className="text-sm font-bold text-text-primary">{app.company_name}</p>
                       <p className="text-[10px] text-amber-600 font-extrabold uppercase tracking-widest flex items-center gap-1 mt-1">
-                        <Star size={10} fill="currentColor" /> {app.rating_avg?.toFixed(1)} Specialist Rating
+                        <Star size={10} fill="currentColor" /> {app.rating_avg?.toFixed(1)} Specialist • {app.estimated_days} days
                       </p>
                     </div>
                     <span className="font-mono font-extrabold text-sm text-secondary-600">₹{app.bid_amount}</span>

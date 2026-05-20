@@ -155,7 +155,7 @@ export default function Profile() {
               <div className="rounded-3xl border border-slate-200 bg-white p-4 dark:border-border-primary dark:bg-bg-secondary">
                 <p className="text-xs uppercase tracking-[0.35em] text-slate-500 dark:text-text-tertiary">Member since</p>
                 <p className="mt-2 text-lg font-semibold text-slate-900 dark:text-white">
-                  {user.created_at ? new Date(user.created_at).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }) : 'Unknown'}
+                  {user.created_at ? new Date(user.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Unknown'}
                 </p>
               </div>
             </div>

@@ -128,8 +128,10 @@ db.initDatabase = async function () {
       tender_id INT NOT NULL,
       vendor_id INT NOT NULL,
       bid_amount DOUBLE NOT NULL,
+      estimated_days INT,
       proposal TEXT,
-      status ENUM('pending','accepted','rejected') DEFAULT 'pending',
+      ai_score FLOAT DEFAULT 0,
+      status ENUM('pending','shortlisted','accepted','rejected','withdrawn') DEFAULT 'pending',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (tender_id) REFERENCES micro_tenders(tender_id) ON DELETE CASCADE,
       FOREIGN KEY (vendor_id) REFERENCES vendors(vendor_id) ON DELETE CASCADE,
@@ -200,6 +202,16 @@ db.initDatabase = async function () {
   try {
     await pool.execute(`ALTER TABLE work_updates ADD COLUMN verification_status VARCHAR(50) DEFAULT 'verified'`);
     await pool.execute(`ALTER TABLE work_updates ADD COLUMN verification_reasoning TEXT`);
+    try { await pool.execute('ALTER TABLE micro_tenders ADD COLUMN completion_image VARCHAR(255)'); } catch (e) {}
+    try { await pool.execute('ALTER TABLE micro_tenders ADD COLUMN completion_note TEXT'); } catch (e) {}
+    try { await pool.execute('ALTER TABLE micro_tenders ADD COLUMN completed_at TIMESTAMP NULL'); } catch (e) {}
+    try { await pool.execute("ALTER TABLE micro_tenders ADD COLUMN verification_status VARCHAR(50) DEFAULT 'pending'"); } catch (e) {}
+
+    try {
+      await pool.execute("ALTER TABLE micro_tenders MODIFY COLUMN status ENUM('open', 'bidding', 'assigned', 'in_progress', 'completed', 'verified', 'closed', 'cancelled') DEFAULT 'open'");
+    } catch (e) {
+      console.log('Ignore enum modify error in mysql if syntax differs', e.message);
+    }
   } catch (e) {
     // Ignore if columns already exist
   }
@@ -224,6 +236,12 @@ db.initDatabase = async function () {
   try { await pool.execute(`ALTER TABLE vendors ADD COLUMN total_ratings INT DEFAULT 0`); } catch (e) {}
   try { await pool.execute(`ALTER TABLE vendors ADD COLUMN total_jobs_completed INT DEFAULT 0`); } catch (e) {}
   try { await pool.execute(`ALTER TABLE vendors ADD COLUMN is_available TINYINT(1) DEFAULT 1`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE vendors ADD COLUMN vendor_score DOUBLE DEFAULT 0.0`); } catch (e) {}
+
+  // Migrate ratings table columns if they do not exist
+  try { await pool.execute(`ALTER TABLE ratings ADD COLUMN proof_image VARCHAR(255)`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE ratings ADD COLUMN ai_sentiment VARCHAR(50)`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE ratings ADD COLUMN is_verified BOOLEAN DEFAULT FALSE`); } catch (e) {}
 
   // Migrate complaints table columns if they do not exist
   try { await pool.execute(`ALTER TABLE complaints ADD COLUMN latitude DOUBLE`); } catch (e) {}
@@ -236,6 +254,11 @@ db.initDatabase = async function () {
   try { await pool.execute(`ALTER TABLE micro_tenders ADD COLUMN manual_cost DOUBLE`); } catch (e) {}
   try { await pool.execute(`ALTER TABLE micro_tenders ADD COLUMN selected_cost_type ENUM('ai', 'manual') DEFAULT 'ai'`); } catch (e) {}
   try { await pool.execute(`ALTER TABLE micro_tenders ADD COLUMN deadline DATETIME`); } catch (e) {}
+
+  // Migrate applications table columns if they do not exist
+  try { await pool.execute(`ALTER TABLE applications ADD COLUMN estimated_days INT`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE applications ADD COLUMN ai_score FLOAT DEFAULT 0`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE applications MODIFY COLUMN status ENUM('pending','shortlisted','accepted','rejected','withdrawn') DEFAULT 'pending'`); } catch (e) {}
 
   // Migrate sessions table columns if they do not exist
   try { await pool.execute(`ALTER TABLE sessions ADD COLUMN token TEXT`); } catch (e) {}

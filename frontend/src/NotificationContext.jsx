@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
 import { useAuth } from './AuthContext';
 import api from './api';
+import toast from 'react-hot-toast';
 
 const NotificationContext = createContext();
 
@@ -46,6 +47,18 @@ export function NotificationProvider({ children }) {
       if (Notification.permission === 'granted') {
         new Notification(notification.title, { body: notification.message });
       }
+
+      // Play sound
+      try {
+        const audio = new Audio('/notification-sound.mp3'); // Example path
+        audio.play().catch(() => {}); // Ignore autoplay errors
+      } catch (e) {}
+
+      // Trigger Toast
+      const toastMsg = `${notification.title}\n${notification.message}`;
+      if (notification.type === 'success') toast.success(toastMsg);
+      else if (notification.type === 'error' || notification.type === 'danger') toast.error(toastMsg);
+      else toast(toastMsg, { icon: '🔔' });
     });
 
     return () => newSocket.disconnect();

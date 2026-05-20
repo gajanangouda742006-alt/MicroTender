@@ -9,6 +9,94 @@ import { StatusBadge } from '../components/StatusTimeline';
 import { MapPin, Briefcase, Send, User, Building, Star, DollarSign, CheckCircle, X, Camera, Loader } from 'lucide-react';
 import SkeletonLoader from '../components/SkeletonLoader';
 
+function CompletionModal({ tenderId, onClose, onSuccess }) {
+  const [note, setNote] = useState('');
+  const [image, setImage] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!image) return alert('Completion photo is required.');
+    
+    setLoading(true);
+    try {
+      const fd = new FormData();
+      fd.append('completion_image', image);
+      fd.append('completion_note', note);
+
+      await api.submitCompletionProof(tenderId, fd);
+      alert('Completion proof submitted successfully! Awaiting admin verification.');
+      onSuccess();
+    } catch (err) {
+      alert(err.message || 'Failed to submit completion proof.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="glass-card max-w-lg w-full p-8 border border-border-primary shadow-2xl space-y-6 animate-scale-up">
+        <div className="flex justify-between items-center pb-4 border-b border-border-primary">
+          <h3 className="text-xl font-bold text-text-primary flex items-center gap-2">
+            <CheckCircle size={20} className="text-green-500" /> Submit Completion Proof
+          </h3>
+          <button onClick={onClose} className="text-text-tertiary hover:text-text-primary transition-colors">
+            <X size={24} />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-text-tertiary uppercase tracking-wider block">Photo Evidence (After Photo)</label>
+            <div className="border-2 border-dashed border-border-primary rounded-xl p-6 text-center hover:bg-bg-secondary transition-colors cursor-pointer relative overflow-hidden group">
+              <input 
+                type="file" 
+                accept="image/*" 
+                required
+                onChange={e => setImage(e.target.files[0])}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+              />
+              {image ? (
+                <div className="space-y-2">
+                  <img src={URL.createObjectURL(image)} alt="Preview" className="mx-auto max-h-32 rounded-lg" />
+                  <p className="text-sm font-bold text-green-500 flex items-center justify-center gap-2">
+                    <CheckCircle size={16} /> Image Selected
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Camera size={32} className="mx-auto text-text-tertiary group-hover:text-secondary-500 transition-colors" />
+                  <p className="text-sm font-bold text-text-secondary">Click or drag to upload completion photo</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-text-tertiary uppercase tracking-wider block">Completion Note</label>
+            <textarea 
+              required
+              rows={3}
+              value={note}
+              onChange={e => setNote(e.target.value)}
+              className="input-futuristic w-full"
+              placeholder="Describe the completed work, materials used, etc..."
+            />
+          </div>
+
+          <button 
+            type="submit" 
+            disabled={loading}
+            className="w-full py-4 bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-bold text-sm tracking-wide shadow-[0_0_20px_rgba(34,197,94,0.3)] transition-all flex justify-center items-center gap-2"
+          >
+            {loading ? <><Loader size={18} className="animate-spin" /> Submitting...</> : 'Submit Final Proof'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function WorkUpdateModal({ tenderId, onClose, onSuccess }) {
   const [description, setDescription] = useState('');
   const [progress, setProgress] = useState(100);
@@ -345,6 +433,7 @@ function MyJobs() {
   const [data, setData] = useState({ jobs: [], applications: [] });
   const [loading, setLoading] = useState(true);
   const [updatingTenderId, setUpdatingTenderId] = useState(null);
+  const [completingTenderId, setCompletingTenderId] = useState(null);
 
   useEffect(() => { api.getMyJobs().then(setData).catch(console.error).finally(() => setLoading(false)); }, []);
 
@@ -385,10 +474,16 @@ function MyJobs() {
                       </button>
                     )}
                     {j.status === 'in_progress' && (
-                      <button onClick={() => setUpdatingTenderId(j.tender_id)}
-                        className="px-6 py-2 bg-green-600 text-white rounded-xl text-xs font-bold shadow-soft hover:bg-green-700 transition-all">
-                        Update Progress
-                      </button>
+                      <>
+                        <button onClick={() => setUpdatingTenderId(j.tender_id)}
+                          className="px-4 py-2 bg-secondary-600 text-white rounded-xl text-xs font-bold shadow-soft hover:bg-secondary-700 transition-all">
+                          Update Progress
+                        </button>
+                        <button onClick={() => setCompletingTenderId(j.tender_id)}
+                          className="px-4 py-2 bg-green-600 text-white rounded-xl text-xs font-bold shadow-soft hover:bg-green-700 transition-all">
+                          Complete Job
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -429,6 +524,13 @@ function MyJobs() {
           tenderId={updatingTenderId} 
           onClose={() => setUpdatingTenderId(null)} 
           onSuccess={() => { setUpdatingTenderId(null); window.location.reload(); }} 
+        />
+      )}
+      {completingTenderId && (
+        <CompletionModal 
+          tenderId={completingTenderId} 
+          onClose={() => setCompletingTenderId(null)} 
+          onSuccess={() => { setCompletingTenderId(null); window.location.reload(); }} 
         />
       )}
     </div>
@@ -480,7 +582,7 @@ function Profile() {
           <Building size={32} className="text-secondary-400 drop-shadow-glow" />
         </motion.div>
         <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-text-secondary mb-2">
-          Business Profile
+          Vendor Profile
         </h1>
         <p className="text-text-tertiary font-medium">Configure your service details and coverage area</p>
       </div>
@@ -496,7 +598,7 @@ function Profile() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
           <motion.div whileFocus={{ scale: 1.02 }} className="space-y-2 group">
-            <label className="text-xs font-black text-text-tertiary uppercase tracking-widest ml-1 group-focus-within:text-secondary-400 transition-colors">Company Name</label>
+            <label className="text-xs font-black text-text-tertiary uppercase tracking-widest ml-1 group-focus-within:text-secondary-400 transition-colors">Vendor Name</label>
             <input value={form.company_name} onChange={e => setForm({ ...form, company_name: e.target.value })}
               className="input-futuristic w-full bg-bg-primary/50 focus:bg-bg-primary transition-all" placeholder="e.g. Acme Construction Co." />
           </motion.div>
@@ -530,7 +632,7 @@ function Profile() {
             <MapPin size={16} className="text-secondary-500" /> Service Operations Center
           </label>
           <div className="border border-border-primary rounded-2xl overflow-hidden shadow-inner ring-1 ring-white/5 hover:ring-secondary-500/50 transition-all duration-500">
-            <MapPicker lat={form.latitude} lng={form.longitude} onLocationSelect={(lat, lng) => setForm({ ...form, latitude: lat, longitude: lng })} />
+            <MapPicker lat={form.latitude} lng={form.longitude} onLocationSelect={(lat, lng) => setForm(prev => ({ ...prev, latitude: lat, longitude: lng }))} />
           </div>
         </div>
 
@@ -544,7 +646,7 @@ function Profile() {
           {isNew ? (
             <div className="flex items-center gap-2">
               <img src={logo} alt="" className="w-5 h-5 object-contain" />
-              <span>Create Business Profile</span>
+              <span>Create Vendor Profile</span>
             </div>
           ) : (
             <div className="flex items-center gap-2">

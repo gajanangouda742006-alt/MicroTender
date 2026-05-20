@@ -77,7 +77,7 @@ export default function MapPicker({ lat, lng, onLocationSelect, readOnly = false
       <div ref={mapRef} style={{ height, width: '100%' }} className="rounded-xl border border-white/10" />
       {!readOnly && (
         <button type="button" onClick={getCurrentLocation}
-          className="absolute top-3 right-3 z-[1000] bg-primary-600 hover:bg-primary-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium shadow-lg transition-colors flex items-center gap-1">
+          className="absolute top-3 right-3 z-[1000] bg-accent-cyan hover:bg-cyan-400 text-slate-950 px-3 py-1.5 rounded-lg text-xs font-semibold shadow-lg transition-colors flex items-center gap-1">
           📍 My Location
         </button>
       )}

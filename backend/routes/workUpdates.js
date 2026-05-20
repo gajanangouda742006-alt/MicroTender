@@ -3,6 +3,7 @@ const db = require('../config/database');
 const { authenticate, authorize } = require('../middleware/auth');
 const upload = require('../middleware/upload');
 const { verifyWorkCompletion } = require('../services/antifraud');
+const notifications = require('./notifications');
 
 const router = express.Router();
 
@@ -55,22 +56,41 @@ router.post('/', authenticate, authorize('vendor'), upload.single('image'), asyn
       [tender_id, vendor.vendor_id, description, imageUrl, latitude || null, longitude || null, progress, verificationStatus, verificationReasoning]
     );
 
+    // Notify Vendor if verification failed
+    if (verificationStatus === 'failed' || verificationStatus === 'rejected') {
+      await notifications.sendNotification(req.app, vendor.user_id, 'Verification Failed', 'Completion proof rejected. Please re-upload evidence.', 'error');
+    }
+
     // Auto-update tender status to completed if 100% progress, else in_progress
     if (progress === 100) {
       await db.run("UPDATE micro_tenders SET status = 'completed' WHERE tender_id = ?", [tender_id]);
       await db.run("UPDATE complaints SET status = 'completed', updated_at = NOW() WHERE complaint_id = ?", [tender.complaint_id]);
       await db.run("UPDATE vendors SET total_jobs_completed = total_jobs_completed + 1 WHERE vendor_id = ?", [vendor.vendor_id]);
+      
+      // Citizen #7
+      if (complaint) {
+        await notifications.sendNotification(req.app, complaint.user_id, 'Work Completed', 'Work marked as completed. Please verify and rate vendor.', 'success');
+      }
+
+      // Admin #5
+      const admins = await db.all("SELECT user_id FROM users WHERE role = 'admin'");
+      for (const admin of admins) {
+        await notifications.sendNotification(req.app, admin.user_id, 'Vendor Completed Work', 'Work marked completed awaiting verification.', 'info');
+      }
+
     } else if (tender.status === 'assigned') {
       await db.run("UPDATE micro_tenders SET status = 'in_progress' WHERE tender_id = ?", [tender_id]);
       await db.run("UPDATE complaints SET status = 'in_progress' WHERE complaint_id = ?", [tender.complaint_id]);
-    }
-
-    // Create notification for the citizen using pre-fetched complaint details
-    if (complaint) {
-      await db.run(
-        'INSERT INTO notifications (user_id, title, message, type) VALUES (?, ?, ?, ?)',
-        [complaint.user_id, 'Work Progress Update', `Vendor submitted ${progress}% progress on your complaint: "${complaint.description?.substring(0, 50)}..."`, 'work_update']
-      );
+      
+      // Citizen #6
+      if (complaint) {
+        await notifications.sendNotification(req.app, complaint.user_id, 'Work Started', 'Work on your complaint has started.', 'info');
+      }
+    } else {
+      // General progress update
+      if (complaint) {
+        await notifications.sendNotification(req.app, complaint.user_id, 'Work Progress Update', `Vendor submitted ${progress}% progress on your complaint.`, 'info');
+      }
     }
 
     const update = await db.get('SELECT * FROM work_updates WHERE update_id = ?', [result.insertId]);

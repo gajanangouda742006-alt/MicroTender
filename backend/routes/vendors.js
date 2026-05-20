@@ -3,6 +3,7 @@ const db = require('../config/database');
 const { authenticate, authorize } = require('../middleware/auth');
 const { findNearbyVendors, getActiveJobsCount, haversineDistance } = require('../services/vendorMatching');
 const notifications = require('./notifications');
+const { calculateBidScore } = require('../services/aiAnalyzer');
 
 const router = express.Router();
 
@@ -119,9 +120,9 @@ router.get('/nearby-tenders', authenticate, authorize('vendor'), async (req, res
 // POST /api/vendors/apply/:tenderId
 router.post('/apply/:tenderId', authenticate, authorize('vendor'), async (req, res) => {
   try {
-    const { bid_amount, proposal } = req.body;
-    if (!bid_amount || bid_amount <= 0)
-      return res.status(400).json({ error: 'Valid bid amount is required.' });
+    const { bid_amount, proposal, estimated_days } = req.body;
+    if (!bid_amount || bid_amount <= 0 || !estimated_days || estimated_days <= 0)
+      return res.status(400).json({ error: 'Valid bid amount and estimated days are required.' });
 
     const vendor = await db.get('SELECT * FROM vendors WHERE user_id = ?', [req.user.user_id]);
     if (!vendor) return res.status(404).json({ error: 'Vendor profile not found.' });
@@ -130,17 +131,40 @@ router.post('/apply/:tenderId', authenticate, authorize('vendor'), async (req, r
     if (!tender) return res.status(404).json({ error: 'Tender not found.' });
     if (tender.status !== 'open') return res.status(400).json({ error: 'Tender is no longer open.' });
 
+    // Validation: Suspicious Low or High Bid
+    if (bid_amount < tender.estimated_cost * 0.4) {
+      return res.status(400).json({ error: 'Bid amount is suspiciously low (less than 40% of AI estimate). Flagged as spam.' });
+    }
+    if (bid_amount > tender.estimated_cost * 2.0) {
+      return res.status(400).json({ error: 'Bid amount is excessively high (more than 200% of AI estimate).' });
+    }
+
     const existing = await db.get(
       'SELECT application_id FROM applications WHERE tender_id = ? AND vendor_id = ?',
       [tender.tender_id, vendor.vendor_id]
     );
     if (existing) return res.status(409).json({ error: 'Already applied to this tender.' });
 
+    // Calculate AI Score
+    const aiScore = calculateBidScore(
+      parseFloat(bid_amount),
+      tender.estimated_cost,
+      vendor.rating_avg,
+      vendor.total_jobs_completed,
+      parseInt(estimated_days)
+    );
+
     const result = await db.run(
-      'INSERT INTO applications (tender_id, vendor_id, bid_amount, proposal) VALUES (?, ?, ?, ?)',
-      [tender.tender_id, vendor.vendor_id, parseFloat(bid_amount), proposal || null]
+      'INSERT INTO applications (tender_id, vendor_id, bid_amount, estimated_days, proposal, ai_score) VALUES (?, ?, ?, ?, ?, ?)',
+      [tender.tender_id, vendor.vendor_id, parseFloat(bid_amount), parseInt(estimated_days), proposal || null, aiScore]
     );
     const application = await db.get('SELECT * FROM applications WHERE application_id = ?', [result.insertId]);
+
+    // Emit realtime update to admin
+    const io = req.app.get('io');
+    if (io) {
+      io.to('admin').emit('new_bid', { tender_id: tender.tender_id, application });
+    }
 
     const citizen = await db.get(`
       SELECT c.user_id, c.category FROM complaints c
@@ -151,6 +175,13 @@ router.post('/apply/:tenderId', authenticate, authorize('vendor'), async (req, r
     if (citizen) {
       await notifications.sendNotification(req.app, citizen.user_id, 'New Bid Received',
         `A vendor has submitted a bid for your complaint: ${citizen.category}. Check the dashboard for details!`, 'info');
+    }
+
+    // Admin #4
+    const admins = await db.all("SELECT user_id FROM users WHERE role = 'admin'");
+    for (const admin of admins) {
+      await notifications.sendNotification(req.app, admin.user_id, 'Vendor Bid Submitted',
+        `New vendor bid received for active tender.`, 'info');
     }
 
     res.status(201).json({ message: 'Application submitted', application });

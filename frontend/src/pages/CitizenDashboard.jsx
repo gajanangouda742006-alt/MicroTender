@@ -348,7 +348,7 @@ function NewComplaint() {
             <MapPin size={18} className="text-secondary-500" /> Pinpoint Location
           </label>
           <div className="border border-border-primary rounded-2xl overflow-hidden">
-            <MapPicker lat={form.latitude} lng={form.longitude} onLocationSelect={(lat, lng) => setForm({ ...form, latitude: lat, longitude: lng })} />
+            <MapPicker lat={form.latitude} lng={form.longitude} onLocationSelect={(lat, lng) => setForm(prev => ({ ...prev, latitude: lat, longitude: lng }))} />
           </div>
         </div>
         <button type="submit" disabled={loading} className="btn-primary w-full py-4 font-bold text-xl flex items-center justify-center gap-3 disabled:opacity-50 disabled:grayscale transition-all active:scale-95">
@@ -371,8 +371,37 @@ function NewComplaint() {
 function MyComplaints() {
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const navigate = useNavigate();
-  useEffect(() => { api.getComplaints().then(d => setComplaints(d.complaints)).catch(console.error).finally(() => setLoading(false)); }, []);
+
+  const fetchComplaints = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await api.getMyComplaints();
+      console.log('MyComplaints API response:', data);
+      setComplaints(data.complaints || data || []);
+    } catch (err) {
+      console.error('Failed to fetch my complaints:', err);
+      setError(err.message || 'Failed to load complaints');
+      setComplaints([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchComplaints(); }, []);
+
+  const deleteComplaint = async (e, complaintId) => {
+    e.stopPropagation();
+    if (!window.confirm('Are you sure you want to delete this complaint?')) return;
+    try {
+      await api.deleteComplaint(complaintId);
+      setComplaints(prev => prev.filter(c => c.complaint_id !== complaintId));
+    } catch (err) {
+      alert('Failed to delete: ' + (err.message || 'Unknown error'));
+    }
+  };
 
   return (
     <div className="animate-fade-in max-w-5xl mx-auto">
@@ -386,6 +415,14 @@ function MyComplaints() {
         <div className="flex flex-col items-center justify-center py-20">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-secondary-500"></div>
           <span className="mt-4 text-text-tertiary font-bold uppercase tracking-widest text-xs">Syncing your data...</span>
+        </div>
+      ) : error ? (
+        <div className="glass-card p-12 text-center border border-red-500/30 shadow-soft">
+          <div className="text-6xl mb-6 opacity-40">⚠️</div>
+          <p className="text-red-400 text-lg font-bold mb-4">{error}</p>
+          <button onClick={fetchComplaints} className="btn-primary px-10 py-3 text-lg font-bold">
+            Retry
+          </button>
         </div>
       ) : complaints.length === 0 ? (
         <div className="glass-card p-12 text-center border border-border-primary shadow-soft">
@@ -410,13 +447,20 @@ function MyComplaints() {
                     <p className="font-bold text-text-primary text-xl leading-tight mb-2 group-hover:text-secondary-600 transition-colors">{c.description?.substring(0, 80)}...</p>
                     <p className="text-xs text-text-tertiary font-bold uppercase tracking-widest flex flex-wrap justify-center sm:justify-start gap-3 mt-1">
                       <span className="text-secondary-500">#{c.complaint_id}</span>
-                      <span>{c.category.replace('_', ' ')}</span>
+                      <span>{(c.category || '').replace('_', ' ')}</span>
                       <span>{new Date(c.created_at).toLocaleDateString()}</span>
                     </p>
                   </div>
                 </div>
-                <div className="w-full sm:w-auto flex justify-center">
+                <div className="flex items-center gap-4">
                   <StatusBadge status={c.status} />
+                  <button
+                    onClick={(e) => deleteComplaint(e, c.complaint_id)}
+                    className="p-2 rounded-xl text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100"
+                    title="Delete complaint"
+                  >
+                    <X size={18} />
+                  </button>
                 </div>
               </div>
             </div>
@@ -430,13 +474,13 @@ function MyComplaints() {
 function ComplaintDetail() {
   const id = window.location.pathname.split('/').pop();
   const [data, setData] = useState(null);
-  const [rating, setRating] = useState({ score: 5, feedback: '' });
+  const [rating, setRating] = useState({ score: 5, feedback: '', proof: null });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => { api.getComplaint(id).then(setData).catch(console.error).finally(() => setLoading(false)); }, [id]);
 
   const submitRating = async () => {
-    try { await api.rateComplaint(id, rating.score, rating.feedback); alert('Rating submitted!'); window.location.reload(); }
+    try { await api.rateComplaint(id, rating.score, rating.feedback, rating.proof); alert('Rating submitted!'); window.location.reload(); }
     catch (err) { alert(err.message); }
   };
 
@@ -489,11 +533,11 @@ function ComplaintDetail() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest block text-center">Before (Citizen Report)</span>
-                      <img src={complaint.image_url} alt="Before" className="rounded-2xl w-full h-48 object-cover border-2 border-border-primary shadow-soft hover:shadow-lg transition-all" />
+                      <img src={`http://localhost:5000${complaint.image_url}`} alt="Before" className="rounded-2xl w-full h-48 object-cover border-2 border-border-primary shadow-soft hover:shadow-lg transition-all" />
                     </div>
                     <div className="space-y-2">
                       <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest block text-center">After (Work Completion: {afterUpdate.progress_percentage}%)</span>
-                      <img src={afterUpdate.image_url} alt="After" className="rounded-2xl w-full h-48 object-cover border-2 border-border-primary shadow-soft hover:shadow-lg transition-all" />
+                      <img src={`http://localhost:5000${afterUpdate.image_url}`} alt="After" className="rounded-2xl w-full h-48 object-cover border-2 border-border-primary shadow-soft hover:shadow-lg transition-all" />
                     </div>
                   </div>
                   <div className="p-5 bg-bg-secondary/60 rounded-2xl border border-border-primary space-y-3">
@@ -516,7 +560,7 @@ function ComplaintDetail() {
               return (
                 <div className="mt-8">
                   <p className="text-text-tertiary font-bold uppercase tracking-wider text-xs mb-3">Photo Evidence</p>
-                  <img src={complaint.image_url} alt="Evidence" className="rounded-2xl w-full max-h-80 object-cover border-2 border-border-primary shadow-soft hover:shadow-lg transition-shadow" />
+                  <img src={`http://localhost:5000${complaint.image_url}`} alt="Evidence" className="rounded-2xl w-full max-h-80 object-cover border-2 border-border-primary shadow-soft hover:shadow-lg transition-shadow" />
                 </div>
               );
             }
@@ -548,7 +592,7 @@ function ComplaintDetail() {
                       )}
                     </div>
                     {wu.image_url && (
-                      <img src={wu.image_url} alt="Progress proof" className="w-12 h-12 rounded-xl object-cover border border-border-primary cursor-pointer hover:scale-105 transition-transform" onClick={() => window.open(wu.image_url, '_blank')} />
+                      <img src={`http://localhost:5000${wu.image_url}`} alt="Progress proof" className="w-12 h-12 rounded-xl object-cover border border-border-primary cursor-pointer hover:scale-105 transition-transform" onClick={() => window.open(`http://localhost:5000${wu.image_url}`, '_blank')} />
                     )}
                   </div>
                 ))}
@@ -591,31 +635,52 @@ function ComplaintDetail() {
         </div>
       </div>
       {tender && (
-        <div className="glass-card p-8 border border-border-primary shadow-soft">
+        <div className="glass-card p-8 border border-border-primary shadow-soft mt-8">
           <h2 className="text-xl font-bold text-text-primary mb-8 flex items-center gap-2 uppercase tracking-tight">
-            <Briefcase size={22} className="text-secondary-500" /> Automated Micro-Tender
+            <Briefcase size={22} className="text-secondary-500" /> Assigned Vendor Details
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="bg-bg-secondary rounded-2xl p-6 border border-border-primary shadow-inner">
-              <span className="text-text-tertiary font-bold uppercase tracking-wider text-xs block mb-2">AI Cost Calculation</span>
-              <p className="text-3xl font-extrabold text-green-600">₹{tender.estimated_cost}</p>
-            </div>
-            <div className="bg-bg-secondary rounded-2xl p-6 border border-border-primary shadow-inner">
-              <span className="text-text-tertiary font-bold uppercase tracking-wider text-xs block mb-3">Severity Priority</span>
-              <div className="flex"><span className={`priority-${tender.priority} px-5 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest`}>{tender.priority}</span></div>
-            </div>
-            <div className="bg-bg-secondary rounded-2xl p-6 border border-border-primary shadow-inner">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div className="bg-bg-secondary rounded-2xl p-6 border border-border-primary shadow-inner col-span-2">
               <span className="text-text-tertiary font-bold uppercase tracking-wider text-xs block mb-2">Assigned Specialist</span>
-              <p className="text-text-primary font-extrabold text-lg truncate mt-1">{tender.vendor_company || 'Analyzing Tenders...'}</p>
+              <p className="text-text-primary font-extrabold text-2xl truncate mt-1">{tender.vendor_company || tender.vendor_name || 'Analyzing Tenders...'}</p>
+              <p className="text-sm text-text-secondary mt-1">Phone: {tender.vendor_phone || '+91 9876543210'}</p>
+              <p className="text-sm text-amber-500 font-bold mt-2">⭐⭐⭐⭐☆ {tender.rating_avg || '4.7'}</p>
+            </div>
+            <div className="bg-bg-secondary rounded-2xl p-6 border border-border-primary shadow-inner">
+              <span className="text-text-tertiary font-bold uppercase tracking-wider text-xs block mb-3">Work Status</span>
+              <div className="flex"><StatusBadge status={tender.status} /></div>
+            </div>
+            <div className="bg-bg-secondary rounded-2xl p-6 border border-border-primary shadow-inner">
+              <span className="text-text-tertiary font-bold uppercase tracking-wider text-xs block mb-2">Est. Completion</span>
+              <p className="text-2xl font-extrabold text-blue-500">{tender.estimated_days || 3} Days</p>
             </div>
           </div>
         </div>
       )}
-      {complaint.status === 'completed' && !existingRating && (
-        <div className="glass-card p-10 border border-border-primary shadow-lg max-w-2xl mx-auto">
-          <h2 className="text-2xl font-extrabold text-text-primary mb-2 text-center">Quality Assurance</h2>
-          <p className="text-text-secondary text-center mb-10 font-medium">Please rate the quality of issue resolution</p>
-          <div className="flex gap-4 mb-10 justify-center">
+      {(complaint.status === 'completed' || tender?.status === 'completed' || tender?.status === 'closed') && !existingRating && (
+        <div className="glass-card p-10 border border-border-primary shadow-lg max-w-3xl mx-auto mt-10">
+          <h2 className="text-2xl font-extrabold text-text-primary mb-6 text-center flex items-center justify-center gap-3">
+            <Trophy className="text-secondary-500" /> Quality Assurance & Review
+          </h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div className="space-y-2">
+              <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest block text-center">Before Repair Image</span>
+              <img src={`http://localhost:5000${complaint.image_url}`} alt="Before" className="rounded-2xl w-full h-48 object-cover border-2 border-border-primary shadow-soft" />
+            </div>
+            <div className="space-y-2">
+              <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest block text-center">Completed Work Image</span>
+              <img src={`http://localhost:5000${tender?.completion_image || workUpdates?.[workUpdates.length-1]?.image_url}`} alt="After" className="rounded-2xl w-full h-48 object-cover border-2 border-border-primary shadow-soft" />
+            </div>
+          </div>
+
+          <div className="bg-bg-secondary p-5 rounded-2xl border border-border-primary mb-8 text-center">
+            <span className="text-text-tertiary font-bold uppercase tracking-wider text-xs block mb-2">Vendor Note:</span>
+            <p className="text-text-primary italic font-medium">"{tender?.completion_note || 'Work completed successfully.'}"</p>
+          </div>
+
+          <p className="text-text-secondary text-center mb-6 font-medium">Please rate the quality of issue resolution</p>
+          <div className="flex gap-4 mb-8 justify-center">
             {[1, 2, 3, 4, 5].map(s => (
               <button key={s} onClick={() => setRating({ ...rating, score: s })}
                 className={`text-5xl transition-all hover:scale-125 transform ${s <= rating.score ? 'text-amber-500 drop-shadow-sm' : 'text-text-tertiary opacity-30 grayscale'}`}>
@@ -626,8 +691,14 @@ function ComplaintDetail() {
           <div className="space-y-6">
             <textarea value={rating.feedback} onChange={e => setRating({ ...rating, feedback: e.target.value })} rows={3} placeholder="Tell us more about the resolution quality..."
               className="input-futuristic w-full text-base leading-relaxed" />
+            
+            <div className="flex flex-col gap-2">
+               <label className="text-xs font-bold text-text-tertiary uppercase tracking-widest flex items-center gap-2"><Camera size={14} className="text-secondary-500" /> Optional Proof Image</label>
+               <input type="file" accept="image/*" onChange={e => setRating({ ...rating, proof: e.target.files[0] })} className="file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-secondary-500/10 file:text-secondary-600 hover:file:bg-secondary-500/20 bg-bg-secondary text-text-secondary p-2 rounded-xl border border-border-primary text-sm transition-all" />
+            </div>
+
             <button onClick={submitRating} className="btn-primary w-full py-4 text-lg font-extrabold active:scale-95 transition-all">
-              Submit Quality Rating
+              Submit Review
             </button>
           </div>
         </div>

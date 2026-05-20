@@ -134,6 +134,8 @@ router.get('/dashboard', async (req, res) => {
       ORDER BY alert_count DESC LIMIT 5
     `, []);
 
+// GET /api/admin/dashboard
+// ... existing dashboard code ...
     res.json({
       overview: {
         totalComplaints, pendingComplaints, activeComplaints, completedComplaints,
@@ -159,6 +161,31 @@ router.get('/dashboard', async (req, res) => {
   }
 });
 
+const { approveComplaint, rejectComplaint } = require('../services/complaintService');
+
+// POST /api/admin/complaint/:id/approve
+router.post('/complaint/:id/approve', async (req, res) => {
+  try {
+    const tender = await approveComplaint(req.app, req.params.id);
+    res.json({ message: 'Complaint approved and tender created', tender });
+  } catch (err) {
+    console.error('Approve complaint error:', err);
+    res.status(500).json({ error: err.message || 'Failed to approve complaint.' });
+  }
+});
+
+// POST /api/admin/complaint/:id/reject
+router.post('/complaint/:id/reject', async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const result = await rejectComplaint(req.app, req.params.id, reason);
+    res.json(result);
+  } catch (err) {
+    console.error('Reject complaint error:', err);
+    res.status(500).json({ error: err.message || 'Failed to reject complaint.' });
+  }
+});
+
 // POST /api/admin/assign-vendor
 router.post('/assign-vendor', async (req, res) => {
   try {
@@ -180,15 +207,57 @@ router.post('/assign-vendor', async (req, res) => {
     const citizen = await db.get("SELECT c.user_id, c.category FROM complaints c WHERE c.complaint_id = ?", [tender.complaint_id]);
     if (citizen) {
       await notifications.sendNotification(req.app, citizen.user_id, 'Vendor Assigned',
-        `A vendor (${vendor.company_name}) has been assigned to resolve your complaint: ${citizen.category}.`, 'success');
+        `A vendor has been assigned to resolve your issue.`, 'success');
     }
-    await notifications.sendNotification(req.app, vendor.user_id, 'New Job Assigned',
-      `You have been assigned to a new micro-tender for: ${citizen?.category || 'Civic Issue'}.`, 'success');
+    await notifications.sendNotification(req.app, vendor.user_id, 'Bid Accepted',
+      `Congratulations! Your bid has been accepted.`, 'success');
+
+    const otherVendors = await db.all("SELECT vendor_id FROM applications WHERE tender_id = ? AND vendor_id != ?", [tender_id, vendor_id]);
+    for(const v of otherVendors) {
+       const user = await db.get('SELECT user_id FROM vendors WHERE vendor_id = ?', [v.vendor_id]);
+       if(user) {
+         await notifications.sendNotification(req.app, user.user_id, 'Bid Rejected', 'Your bid was not selected for this tender.', 'info');
+       }
+    }
 
     res.json({ message: 'Vendor assigned successfully' });
   } catch (err) {
     console.error('Assign vendor error:', err);
     res.status(500).json({ error: 'Failed to assign vendor.' });
+  }
+});
+
+// PUT /api/admin/tenders/:id/verify
+router.put('/tenders/:id/verify', async (req, res) => {
+  try {
+    const tenderId = req.params.id;
+    
+    const tender = await db.get('SELECT * FROM micro_tenders WHERE tender_id = ?', [tenderId]);
+    if (!tender) return res.status(404).json({ error: 'Tender not found.' });
+
+    await db.run(`
+      UPDATE micro_tenders
+      SET verification_status = 'verified', status = 'closed'
+      WHERE tender_id = ?
+    `, [tenderId]);
+
+    // Send notifications
+    const citizen = await db.get("SELECT c.user_id FROM complaints c WHERE c.complaint_id = ?", [tender.complaint_id]);
+    if (citizen) {
+      await notifications.sendNotification(req.app, citizen.user_id, 'Completion Verified', 'Admin has verified that your issue was successfully resolved.', 'success');
+    }
+
+    if (tender.assigned_vendor_id) {
+      const vendor = await db.get("SELECT user_id FROM vendors WHERE vendor_id = ?", [tender.assigned_vendor_id]);
+      if (vendor) {
+        await notifications.sendNotification(req.app, vendor.user_id, 'Payment Authorized', 'Your work has been verified. Payment has been authorized.', 'success');
+      }
+    }
+
+    res.json({ success: true, message: 'Work verified successfully' });
+  } catch (err) {
+    console.error('Verification error:', err);
+    res.status(500).json({ error: 'Failed to verify work.' });
   }
 });
 
@@ -218,10 +287,10 @@ router.post('/auto-assign/:tenderId', async (req, res) => {
     const citizen = await db.get("SELECT c.user_id, c.category FROM complaints c WHERE c.complaint_id = ?", [tender.complaint_id]);
     if (citizen) {
       await notifications.sendNotification(req.app, citizen.user_id, 'Vendor Assigned',
-        `A vendor (${bestVendor.company_name || bestVendor.vendor_name}) has been auto-assigned to resolve your complaint: ${citizen.category}.`, 'success');
+        `A vendor has been assigned to resolve your issue.`, 'success');
     }
-    await notifications.sendNotification(req.app, bestVendor.user_id, 'New Job Assigned',
-      `You have been auto-assigned to a new micro-tender for: ${citizen?.category || 'Civic Issue'}.`, 'success');
+    await notifications.sendNotification(req.app, bestVendor.user_id, 'Bid Accepted',
+      `You are recommended for a high-priority repair task.`, 'success');
 
     res.json({ message: 'Auto-assigned to best matching vendor', assignedVendor: bestVendor, candidates: topVendors });
   } catch (err) {
@@ -280,6 +349,10 @@ router.post('/action/:tenderId', async (req, res) => {
         await db.run("UPDATE complaints SET status = 'completed', updated_at = NOW() WHERE complaint_id = ?", [tender.complaint_id]);
         if (tender.assigned_vendor_id) {
           await db.run('UPDATE vendors SET total_jobs_completed = total_jobs_completed + 1 WHERE vendor_id = ?', [tender.assigned_vendor_id]);
+          const vendorUser = await db.get('SELECT user_id FROM vendors WHERE vendor_id = ?', [tender.assigned_vendor_id]);
+          if(vendorUser) {
+             await notifications.sendNotification(req.app, vendorUser.user_id, 'Payment Released', 'Payment has been released successfully.', 'success');
+          }
         }
         break;
       default:

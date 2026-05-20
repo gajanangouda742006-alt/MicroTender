@@ -2,6 +2,9 @@ const express = require('express');
 const db = require('../config/database');
 const { authenticate, authorize } = require('../middleware/auth');
 const { estimateCost } = require('../services/costEstimation');
+const upload = require('../middleware/upload');
+const { verifyCompletion } = require('../services/aiAnalyzer');
+const { sendSmartNotification } = require('../services/notificationService');
 
 const router = express.Router();
 
@@ -147,6 +150,76 @@ router.post('/check-deadlines', authenticate, async (req, res) => {
   } catch (err) {
     console.error('Deadline checks error:', err);
     res.status(500).json({ error: 'Failed to run deadline check.' });
+  }
+});
+
+// PUT /api/tenders/:id/complete - Vendor marks tender as completed with proof
+router.put('/:id/complete', authenticate, authorize('vendor'), upload.single('completion_image'), async (req, res) => {
+  try {
+    const tenderId = req.params.id;
+    const { completion_note } = req.body;
+    
+    if (!req.file) return res.status(400).json({ error: 'Completion image is required.' });
+    const imagePath = `/uploads/${req.file.filename}`;
+
+    const tender = await db.get(`
+      SELECT mt.*, c.image_url as original_image, c.user_id as citizen_id
+      FROM micro_tenders mt
+      JOIN complaints c ON mt.complaint_id = c.complaint_id
+      WHERE mt.tender_id = ?
+    `, [tenderId]);
+
+    if (!tender) return res.status(404).json({ error: 'Tender not found.' });
+
+    // Validate the vendor is the one assigned
+    const vendor = await db.get('SELECT vendor_id FROM vendors WHERE user_id = ?', [req.user.user_id]);
+    if (!vendor || tender.assigned_vendor_id !== vendor.vendor_id) {
+      return res.status(403).json({ error: 'Not authorized to complete this tender.' });
+    }
+
+    // Call AI to verify the original vs completion image
+    const aiVerification = await verifyCompletion(tender.original_image, imagePath, completion_note);
+
+    await db.run(`
+      UPDATE micro_tenders
+      SET completion_image = ?, completion_note = ?, status = 'completed', verification_status = 'pending', completed_at = NOW()
+      WHERE tender_id = ?
+    `, [imagePath, completion_note || null, tenderId]);
+
+    // Save AI verification as a work update for record-keeping
+    await db.run(`
+      INSERT INTO work_updates (tender_id, vendor_id, update_description, progress_percentage, image_url, verification_status, verification_reasoning)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `, [
+      tenderId, vendor.vendor_id, 
+      'Tender marked as completed by vendor. AI Verification Report: ' + (aiVerification.isResolved ? 'Resolved' : 'Not Resolved'), 
+      100, imagePath,
+      aiVerification.fraudDetected ? 'suspicious' : (aiVerification.isResolved ? 'verified' : 'pending'),
+      aiVerification.reasoning
+    ]);
+
+    // Notify Admin and Citizen
+    const admins = await db.all("SELECT user_id FROM users WHERE role = 'admin'");
+    for (const admin of admins) {
+      await sendSmartNotification(req.app, admin.user_id, {
+        title: 'Completion Proof Pending',
+        message: 'Vendor has uploaded completion proof and is awaiting admin verification.',
+        type: 'info'
+      });
+    }
+
+    if (tender.citizen_id) {
+      await sendSmartNotification(req.app, tender.citizen_id, {
+        title: 'Work Completed',
+        message: 'Your reported issue has been marked as resolved! Admins are verifying it.',
+        type: 'success'
+      });
+    }
+
+    res.json({ success: true, message: 'Completion proof uploaded', aiVerification });
+  } catch (err) {
+    console.error('Completion error:', err);
+    res.status(500).json({ error: 'Failed to upload completion proof.' });
   }
 });
 
