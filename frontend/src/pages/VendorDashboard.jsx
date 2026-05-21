@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import logo from '../assets/logo.png';
-import { Link, Routes, Route } from 'react-router-dom';
+import { Link, Routes, Route, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import api from '../api';
@@ -8,6 +8,10 @@ import MapPicker from '../components/MapPicker';
 import { StatusBadge } from '../components/StatusTimeline';
 import { MapPin, Briefcase, Send, User, Building, Star, DollarSign, CheckCircle, X, Camera, Loader } from 'lucide-react';
 import SkeletonLoader from '../components/SkeletonLoader';
+import { useNotifications } from '../NotificationContext';
+import VendorComplaintDetails from './VendorComplaintDetails';
+import VendorAssignedWork from './VendorAssignedWork';
+import VendorReviews from './VendorReviews';
 
 function CompletionModal({ tenderId, onClose, onSuccess }) {
   const [note, setNote] = useState('');
@@ -434,8 +438,40 @@ function MyJobs() {
   const [loading, setLoading] = useState(true);
   const [updatingTenderId, setUpdatingTenderId] = useState(null);
   const [completingTenderId, setCompletingTenderId] = useState(null);
+  const navigate = useNavigate();
 
-  useEffect(() => { api.getMyJobs().then(setData).catch(console.error).finally(() => setLoading(false)); }, []);
+  const fetchJobs = () => {
+    Promise.all([api.getMyJobs(), api.getMyApplications()])
+      .then(([jobsData, appsData]) => {
+        setData({ jobs: jobsData.jobs || [], applications: appsData.applications || [] });
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchJobs();
+  }, []);
+
+  const { socket } = useNotifications();
+
+  useEffect(() => {
+    if (socket) {
+      const handleUpdate = () => {
+        fetchJobs();
+      };
+      
+      socket.on('notification', handleUpdate);
+      socket.on('tender_updated', handleUpdate);
+      socket.on('application_updated', handleUpdate);
+
+      return () => {
+        socket.off('notification', handleUpdate);
+        socket.off('tender_updated', handleUpdate);
+        socket.off('application_updated', handleUpdate);
+      };
+    }
+  }, [socket]);
 
   return (
     <div className="animate-fade-in max-w-5xl mx-auto space-y-10">
@@ -502,7 +538,7 @@ function MyJobs() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {data.applications?.map(a => (
-              <motion.div key={a.application_id} whileHover={{ scale: 1.02 }} className="glass-card hover-3d p-5 border border-border-primary flex items-center justify-between bg-bg-secondary/20">
+              <motion.div key={a.application_id} whileHover={{ scale: 1.02 }} className="glass-card hover-3d p-5 border border-border-primary flex items-center justify-between bg-bg-secondary/20 cursor-pointer" onClick={() => navigate(`/vendor/complaints/${a.complaint_id}`)}>
                 <div className="pr-4">
                   <p className="font-bold text-text-primary text-sm mb-1 truncate max-w-[200px] md:max-w-[300px]">{a.description?.substring(0, 60)}...</p>
                   <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">{a.category} • Bid: <span className="text-green-600">₹{a.bid_amount}</span></p>
@@ -668,8 +704,11 @@ export default function VendorDashboard() {
       <Route index element={<Overview />} />
       <Route path="nearby" element={<NearbyTenders />} />
       <Route path="my-jobs" element={<MyJobs />} />
+      <Route path="assigned-work" element={<VendorAssignedWork />} />
+      <Route path="reviews" element={<VendorReviews />} />
       <Route path="profile" element={<Profile />} />
       <Route path="notifications" element={<NotificationsPanel />} />
+      <Route path="complaints/:id" element={<VendorComplaintDetails />} />
     </Routes>
   );
 }

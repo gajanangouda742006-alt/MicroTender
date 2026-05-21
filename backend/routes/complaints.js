@@ -168,6 +168,72 @@ router.get('/my', authenticate, authorize('citizen'), async (req, res) => {
   }
 });
 
+// GET /api/complaints/completed
+router.get('/completed', authenticate, authorize('citizen'), async (req, res) => {
+  try {
+    const complaints = await db.all(`
+      SELECT
+        c.complaint_id,
+        c.category,
+        c.description,
+        c.image_url,
+        c.status,
+        c.created_at,
+        c.updated_at,
+        c.latitude,
+        c.longitude,
+        c.ai_analysis,
+        c.department,
+        mt.tender_id,
+        mt.priority,
+        mt.estimated_cost,
+        mt.verification_status,
+        mt.completed_at,
+        v.vendor_id,
+        v.company_name,
+        v.rating_avg,
+        v.total_jobs_completed,
+        u.name AS vendor_name,
+        r.rating_id,
+        r.score AS citizen_rating,
+        r.feedback AS citizen_review,
+        r.created_at AS citizen_reviewed_at,
+        cp.cover_image_url,
+        cp.image_urls,
+        cp.completion_note,
+        cp.reviewed_at AS completion_date
+      FROM complaints c
+      JOIN micro_tenders mt ON mt.complaint_id = c.complaint_id
+      LEFT JOIN vendors v ON v.vendor_id = mt.assigned_vendor_id
+      LEFT JOIN users u ON u.user_id = v.user_id
+      LEFT JOIN ratings r
+        ON r.complaint_id = c.complaint_id
+       AND r.user_id = ?
+      LEFT JOIN completion_proofs cp ON cp.proof_id = (
+        SELECT proof_id
+        FROM completion_proofs
+        WHERE tender_id = mt.tender_id AND status = 'approved'
+        ORDER BY reviewed_at DESC, submitted_at DESC
+        LIMIT 1
+      )
+      WHERE c.user_id = ?
+        AND c.status = 'completed'
+        AND mt.verification_status = 'verified'
+      ORDER BY COALESCE(cp.reviewed_at, mt.completed_at, c.updated_at) DESC
+    `, [req.user.user_id, req.user.user_id]);
+
+    res.json({
+      complaints: complaints.map((complaint) => ({
+        ...complaint,
+        image_urls: complaint.image_urls ? JSON.parse(complaint.image_urls) : [],
+      })),
+    });
+  } catch (err) {
+    console.error('Get completed complaints error:', err);
+    res.status(500).json({ error: 'Failed to get completed complaints.' });
+  }
+});
+
 // DELETE /api/complaints/:id
 router.delete('/:id', authenticate, authorize('citizen'), async (req, res) => {
   try {
@@ -198,8 +264,35 @@ router.get('/:id', authenticate, async (req, res) => {
     `, [req.params.id]);
     if (!complaint) return res.status(404).json({ error: 'Complaint not found.' });
 
+    if (req.user.role === 'citizen' && complaint.user_id !== req.user.user_id) {
+      return res.status(403).json({ error: 'Unauthorized access to this complaint.' });
+    }
+
+    if (req.user.role === 'vendor') {
+      const vendor = await db.get('SELECT vendor_id FROM vendors WHERE user_id = ?', [req.user.user_id]);
+      if (!vendor) {
+        return res.status(403).json({ error: 'Vendor profile not found.' });
+      }
+
+      const accessCheck = await db.get(`
+        SELECT a.application_id, mt.assigned_vendor_id
+        FROM micro_tenders mt
+        LEFT JOIN applications a
+          ON a.tender_id = mt.tender_id
+         AND a.vendor_id = ?
+        WHERE mt.complaint_id = ?
+          AND (a.application_id IS NOT NULL OR mt.assigned_vendor_id = ?)
+        LIMIT 1
+      `, [vendor.vendor_id, req.params.id, vendor.vendor_id]);
+
+      if (!accessCheck) {
+        return res.status(403).json({ error: 'Unauthorized access to this complaint.' });
+      }
+    }
+
     const tender = await db.get(`
-      SELECT mt.*, v.company_name as vendor_company, u.name as vendor_name
+      SELECT mt.*, v.company_name as vendor_company, u.name as vendor_name,
+             v.rating_avg, v.total_jobs_completed, v.vendor_id
       FROM micro_tenders mt
       LEFT JOIN vendors v ON mt.assigned_vendor_id = v.vendor_id
       LEFT JOIN users u ON v.user_id = u.user_id
@@ -216,6 +309,12 @@ router.get('/:id', authenticate, async (req, res) => {
     `, [tender?.tender_id || 0]);
 
     const rating = await db.get('SELECT * FROM ratings WHERE complaint_id = ?', [complaint.complaint_id]);
+    const completionProofs = tender ? await db.all(`
+      SELECT *
+      FROM completion_proofs
+      WHERE tender_id = ?
+      ORDER BY submitted_at DESC
+    `, [tender.tender_id]) : [];
     
     const workUpdates = tender ? await db.all(
       `SELECT wu.*, v.company_name, u.name as vendor_name
@@ -227,7 +326,17 @@ router.get('/:id', authenticate, async (req, res) => {
       [tender.tender_id]
     ) : [];
 
-    res.json({ complaint, tender, applications, rating, workUpdates });
+    res.json({
+      complaint,
+      tender,
+      applications,
+      rating,
+      workUpdates,
+      completionProofs: completionProofs.map((proof) => ({
+        ...proof,
+        image_urls: proof.image_urls ? JSON.parse(proof.image_urls) : [],
+      })),
+    });
   } catch (err) {
     console.error('Get complaint error:', err);
     res.status(500).json({ error: 'Failed to get complaint.' });

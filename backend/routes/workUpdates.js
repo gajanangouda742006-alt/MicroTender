@@ -3,6 +3,7 @@ const db = require('../config/database');
 const { authenticate, authorize } = require('../middleware/auth');
 const upload = require('../middleware/upload');
 const { verifyWorkCompletion } = require('../services/antifraud');
+const { emitLifecycleEvent, submitCompletionProof } = require('../services/complaintLifecycleService');
 const notifications = require('./notifications');
 
 const router = express.Router();
@@ -10,13 +11,14 @@ const router = express.Router();
 // POST /api/work-updates - Vendor submits a progress update
 router.post('/', authenticate, authorize('vendor'), upload.single('image'), async (req, res) => {
   try {
-    const { tender_id, description, latitude, longitude, progress_percentage } = req.body;
-    if (!tender_id || !description) {
+    const { tender_id, description, notes, latitude, longitude, progress_percentage } = req.body;
+    const updateNotes = description || notes;
+    if (!tender_id || !updateNotes) {
       return res.status(400).json({ error: 'tender_id and description are required.' });
     }
 
     // Verify vendor owns this tender
-    const vendor = await db.get('SELECT vendor_id FROM vendors WHERE user_id = ?', [req.user.user_id]);
+    const vendor = await db.get('SELECT vendor_id, user_id FROM vendors WHERE user_id = ?', [req.user.user_id]);
     if (!vendor) return res.status(403).json({ error: 'Vendor profile not found.' });
 
     const tender = await db.get(
@@ -52,8 +54,8 @@ router.post('/', authenticate, authorize('vendor'), upload.single('image'), asyn
     }
 
     const result = await db.run(
-      'INSERT INTO work_updates (tender_id, vendor_id, description, image_url, latitude, longitude, progress_percentage, verification_status, verification_reasoning) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [tender_id, vendor.vendor_id, description, imageUrl, latitude || null, longitude || null, progress, verificationStatus, verificationReasoning]
+      'INSERT INTO work_updates (tender_id, vendor_id, description, image_url, latitude, longitude, progress_percentage, verification_status, verification_reasoning, update_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [tender_id, vendor.vendor_id, updateNotes, imageUrl, latitude || null, longitude || null, progress, verificationStatus, verificationReasoning, 'progress']
     );
 
     // Notify Vendor if verification failed
@@ -61,24 +63,8 @@ router.post('/', authenticate, authorize('vendor'), upload.single('image'), asyn
       await notifications.sendNotification(req.app, vendor.user_id, 'Verification Failed', 'Completion proof rejected. Please re-upload evidence.', 'error');
     }
 
-    // Auto-update tender status to completed if 100% progress, else in_progress
-    if (progress === 100) {
-      await db.run("UPDATE micro_tenders SET status = 'completed' WHERE tender_id = ?", [tender_id]);
-      await db.run("UPDATE complaints SET status = 'completed', updated_at = NOW() WHERE complaint_id = ?", [tender.complaint_id]);
-      await db.run("UPDATE vendors SET total_jobs_completed = total_jobs_completed + 1 WHERE vendor_id = ?", [vendor.vendor_id]);
-      
-      // Citizen #7
-      if (complaint) {
-        await notifications.sendNotification(req.app, complaint.user_id, 'Work Completed', 'Work marked as completed. Please verify and rate vendor.', 'success');
-      }
-
-      // Admin #5
-      const admins = await db.all("SELECT user_id FROM users WHERE role = 'admin'");
-      for (const admin of admins) {
-        await notifications.sendNotification(req.app, admin.user_id, 'Vendor Completed Work', 'Work marked completed awaiting verification.', 'info');
-      }
-
-    } else if (tender.status === 'assigned') {
+    // Keep progress tracking separate from the final completion-proof step.
+    if (tender.status === 'assigned') {
       await db.run("UPDATE micro_tenders SET status = 'in_progress' WHERE tender_id = ?", [tender_id]);
       await db.run("UPDATE complaints SET status = 'in_progress' WHERE complaint_id = ?", [tender.complaint_id]);
       
@@ -91,13 +77,55 @@ router.post('/', authenticate, authorize('vendor'), upload.single('image'), asyn
       if (complaint) {
         await notifications.sendNotification(req.app, complaint.user_id, 'Work Progress Update', `Vendor submitted ${progress}% progress on your complaint.`, 'info');
       }
+      if (progress === 100) {
+        const admins = await db.all("SELECT user_id FROM users WHERE role = 'admin'");
+        for (const admin of admins) {
+          await notifications.sendNotification(req.app, admin.user_id, 'Vendor progress reached 100%', 'Final progress was submitted. Awaiting completion proof upload.', 'info');
+        }
+      }
     }
 
     const update = await db.get('SELECT * FROM work_updates WHERE update_id = ?', [result.insertId]);
+    emitLifecycleEvent(req.app, 'work_update_created', tender.complaint_id, {
+      tenderId: Number(tender_id),
+      updateId: result.insertId,
+      progress,
+    });
     res.status(201).json({ message: 'Progress update submitted.', update });
   } catch (err) {
     console.error('Work update error:', err);
     res.status(500).json({ error: 'Failed to submit progress update.' });
+  }
+});
+
+// POST /api/work-updates/complete - Vendor submits final completion proof
+router.post('/complete', authenticate, authorize('vendor'), upload.fields([
+  { name: 'completion_images', maxCount: 6 },
+  { name: 'completion_image', maxCount: 1 },
+]), async (req, res) => {
+  try {
+    const { tender_id, completion_note } = req.body;
+    if (!tender_id) {
+      return res.status(400).json({ error: 'tender_id is required.' });
+    }
+
+    const files = [
+      ...((req.files && req.files.completion_images) || []),
+      ...((req.files && req.files.completion_image) || []),
+    ];
+
+    const result = await submitCompletionProof({
+      app: req.app,
+      tenderId: tender_id,
+      vendorUserId: req.user.user_id,
+      files,
+      completionNote: completion_note || '',
+    });
+
+    res.status(201).json({ message: 'Completion proof submitted successfully.', ...result });
+  } catch (err) {
+    console.error('Completion proof error:', err);
+    res.status(err.status || 500).json({ error: err.message || 'Failed to submit completion proof.' });
   }
 });
 

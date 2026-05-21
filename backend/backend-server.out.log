@@ -1,0 +1,678 @@
+◇ injected env (7) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
+◇ injected env (0) from .env // tip: ⌁ auth for agents [www.vestauth.com]
+✅ MySQL connected successfully
+✅ Database schema ready (MySQL)
+◇ injected env (0) from .env // tip: ⌁ auth for agents [www.vestauth.com]
+◇ injected env (0) from .env // tip: ⌘ override existing { override: true }
+
+🚀 Micro-Tender API Server running on http://localhost:5000
+🗄️  Database: MySQL (micro_tender_db)
+📋 Health check: http://localhost:5000/api/health
+📁 Uploads: http://localhost:5000/uploads
+
+👤 User connected: rDnW_GTIaAXTaG0zAAAB
+📡 Socket rDnW_GTIaAXTaG0zAAAB joined room: user_2
+=== GET /api/complaints/my ===
+Authenticated User: {"user_id":2,"email":"rajesh@gmail.com","role":"citizen","iat":1779385729,"exp":1779389329}
+Complaints found: 2
+=== GET /api/complaints/my ===
+Authenticated User: {"user_id":2,"email":"rajesh@gmail.com","role":"citizen","iat":1779385729,"exp":1779389329}
+Complaints found: 2
+🔌 User disconnected
+👤 User connected: geN-2ll1pu2xrbfzAAAD
+📡 Socket geN-2ll1pu2xrbfzAAAD joined room: user_1
+🔌 User disconnected
+👤 User connected: cdJOcQU-IHFMCaqqAAAF
+📡 Socket cdJOcQU-IHFMCaqqAAAF joined room: user_6
+Vendor: { vendor_id: 1 }
+Applications: [
+  {
+    application_id: 1,
+    bid_amount: 1900,
+    proposal: 'Can complete pothole repair within 2 days with quality materials.',
+    application_status: 'accepted',
+    tender_id: 1,
+    priority: 'high',
+    tender_status: 'completed',
+    deadline: null,
+    estimated_cost: 2100,
+    complaint_id: 1,
+    category: 'pothole',
+    description: 'Large pothole on main road causing traffic issues and accidents. Approximately 3 meters wide.',
+    latitude: 19.075,
+    longitude: 72.877,
+    image_url: null,
+    complaint_status: 'completed',
+    created_at: 2026-05-21T14:54:37.000Z,
+    citizen_name: 'Rajesh Kumar'
+  },
+  {
+    application_id: 6,
+    bid_amount: 4000,
+    proposal: 'Full road resurfacing with heavy machinery.',
+    application_status: 'pending',
+    tender_id: 5,
+    priority: 'high',
+    tender_status: 'open',
+    deadline: null,
+    estimated_cost: 4500,
+    complaint_id: 5,
+    category: 'road_damage',
+    description: 'Road surface completely damaged after heavy rains. Urgent repair needed.',
+    latitude: 19.068,
+    longitude: 72.868,
+    image_url: null,
+    complaint_status: 'tender_created',
+    created_at: 2026-05-21T14:54:37.000Z,
+    citizen_name: 'Amit Singh'
+  }
+]
+Vendor: { vendor_id: 1 }
+Applications: [
+  {
+    application_id: 1,
+    bid_amount: 1900,
+    proposal: 'Can complete pothole repair within 2 days with quality materials.',
+    application_status: 'accepted',
+    tender_id: 1,
+    priority: 'high',
+    tender_status: 'completed',
+    deadline: null,
+    estimated_cost: 2100,
+    complaint_id: 1,
+    category: 'pothole',
+    description: 'Large pothole on main road causing traffic issues and accidents. Approximately 3 meters wide.',
+    latitude: 19.075,
+    longitude: 72.877,
+    image_url: null,
+    complaint_status: 'completed',
+    created_at: 2026-05-21T14:54:37.000Z,
+    citizen_name: 'Rajesh Kumar'
+  },
+  {
+    application_id: 6,
+    bid_amount: 4000,
+    proposal: 'Full road resurfacing with heavy machinery.',
+    application_status: 'pending',
+    tender_id: 5,
+    priority: 'high',
+    tender_status: 'open',
+    deadline: null,
+    estimated_cost: 4500,
+    complaint_id: 5,
+    category: 'road_damage',
+    description: 'Road surface completely damaged after heavy rains. Urgent repair needed.',
+    latitude: 19.068,
+    longitude: 72.868,
+    image_url: null,
+    complaint_status: 'tender_created',
+    created_at: 2026-05-21T14:54:37.000Z,
+    citizen_name: 'Amit Singh'
+  }
+]
+👤 User connected: cq84C-e9md8u9C_YAAAI
+🔌 User disconnected
+Vendor: { vendor_id: 1 }
+Applications: [
+  {
+    application_id: 1,
+    bid_amount: 1900,
+    proposal: 'Can complete pothole repair within 2 days with quality materials.',
+    application_status: 'accepted',
+    tender_id: 1,
+    priority: 'high',
+    tender_status: 'completed',
+    deadline: null,
+    estimated_cost: 2100,
+    complaint_id: 1,
+    category: 'pothole',
+    description: 'Large pothole on main road causing traffic issues and accidents. Approximately 3 meters wide.',
+    latitude: 19.075,
+    longitude: 72.877,
+    image_url: null,
+    complaint_status: 'completed',
+    created_at: 2026-05-21T14:54:37.000Z,
+    citizen_name: 'Rajesh Kumar'
+  },
+  {
+    application_id: 6,
+    bid_amount: 4000,
+    proposal: 'Full road resurfacing with heavy machinery.',
+    application_status: 'pending',
+    tender_id: 5,
+    priority: 'high',
+    tender_status: 'open',
+    deadline: null,
+    estimated_cost: 4500,
+    complaint_id: 5,
+    category: 'road_damage',
+    description: 'Road surface completely damaged after heavy rains. Urgent repair needed.',
+    latitude: 19.068,
+    longitude: 72.868,
+    image_url: null,
+    complaint_status: 'tender_created',
+    created_at: 2026-05-21T14:54:37.000Z,
+    citizen_name: 'Amit Singh'
+  }
+]
+Vendor: { vendor_id: 1 }
+Applications: [
+  {
+    application_id: 1,
+    bid_amount: 1900,
+    proposal: 'Can complete pothole repair within 2 days with quality materials.',
+    application_status: 'accepted',
+    tender_id: 1,
+    priority: 'high',
+    tender_status: 'completed',
+    deadline: null,
+    estimated_cost: 2100,
+    complaint_id: 1,
+    category: 'pothole',
+    description: 'Large pothole on main road causing traffic issues and accidents. Approximately 3 meters wide.',
+    latitude: 19.075,
+    longitude: 72.877,
+    image_url: null,
+    complaint_status: 'completed',
+    created_at: 2026-05-21T14:54:37.000Z,
+    citizen_name: 'Rajesh Kumar'
+  },
+  {
+    application_id: 6,
+    bid_amount: 4000,
+    proposal: 'Full road resurfacing with heavy machinery.',
+    application_status: 'pending',
+    tender_id: 5,
+    priority: 'high',
+    tender_status: 'open',
+    deadline: null,
+    estimated_cost: 4500,
+    complaint_id: 5,
+    category: 'road_damage',
+    description: 'Road surface completely damaged after heavy rains. Urgent repair needed.',
+    latitude: 19.068,
+    longitude: 72.868,
+    image_url: null,
+    complaint_status: 'tender_created',
+    created_at: 2026-05-21T14:54:37.000Z,
+    citizen_name: 'Amit Singh'
+  }
+]
+Vendor: { vendor_id: 1 }
+Applications: [
+  {
+    application_id: 1,
+    bid_amount: 1900,
+    proposal: 'Can complete pothole repair within 2 days with quality materials.',
+    application_status: 'accepted',
+    tender_id: 1,
+    priority: 'high',
+    tender_status: 'completed',
+    deadline: null,
+    estimated_cost: 2100,
+    complaint_id: 1,
+    category: 'pothole',
+    description: 'Large pothole on main road causing traffic issues and accidents. Approximately 3 meters wide.',
+    latitude: 19.075,
+    longitude: 72.877,
+    image_url: null,
+    complaint_status: 'completed',
+    created_at: 2026-05-21T14:54:37.000Z,
+    citizen_name: 'Rajesh Kumar'
+  },
+  {
+    application_id: 6,
+    bid_amount: 4000,
+    proposal: 'Full road resurfacing with heavy machinery.',
+    application_status: 'pending',
+    tender_id: 5,
+    priority: 'high',
+    tender_status: 'open',
+    deadline: null,
+    estimated_cost: 4500,
+    complaint_id: 5,
+    category: 'road_damage',
+    description: 'Road surface completely damaged after heavy rains. Urgent repair needed.',
+    latitude: 19.068,
+    longitude: 72.868,
+    image_url: null,
+    complaint_status: 'tender_created',
+    created_at: 2026-05-21T14:54:37.000Z,
+    citizen_name: 'Amit Singh'
+  }
+]
+Vendor: { vendor_id: 1 }
+Applications: [
+  {
+    application_id: 1,
+    bid_amount: 1900,
+    proposal: 'Can complete pothole repair within 2 days with quality materials.',
+    application_status: 'accepted',
+    tender_id: 1,
+    priority: 'high',
+    tender_status: 'completed',
+    deadline: null,
+    estimated_cost: 2100,
+    complaint_id: 1,
+    category: 'pothole',
+    description: 'Large pothole on main road causing traffic issues and accidents. Approximately 3 meters wide.',
+    latitude: 19.075,
+    longitude: 72.877,
+    image_url: null,
+    complaint_status: 'completed',
+    created_at: 2026-05-21T14:54:37.000Z,
+    citizen_name: 'Rajesh Kumar'
+  },
+  {
+    application_id: 6,
+    bid_amount: 4000,
+    proposal: 'Full road resurfacing with heavy machinery.',
+    application_status: 'pending',
+    tender_id: 5,
+    priority: 'high',
+    tender_status: 'open',
+    deadline: null,
+    estimated_cost: 4500,
+    complaint_id: 5,
+    category: 'road_damage',
+    description: 'Road surface completely damaged after heavy rains. Urgent repair needed.',
+    latitude: 19.068,
+    longitude: 72.868,
+    image_url: null,
+    complaint_status: 'tender_created',
+    created_at: 2026-05-21T14:54:37.000Z,
+    citizen_name: 'Amit Singh'
+  }
+]
+Vendor: { vendor_id: 1 }
+Applications: [
+  {
+    application_id: 1,
+    bid_amount: 1900,
+    proposal: 'Can complete pothole repair within 2 days with quality materials.',
+    application_status: 'accepted',
+    tender_id: 1,
+    priority: 'high',
+    tender_status: 'completed',
+    deadline: null,
+    estimated_cost: 2100,
+    complaint_id: 1,
+    category: 'pothole',
+    description: 'Large pothole on main road causing traffic issues and accidents. Approximately 3 meters wide.',
+    latitude: 19.075,
+    longitude: 72.877,
+    image_url: null,
+    complaint_status: 'completed',
+    created_at: 2026-05-21T14:54:37.000Z,
+    citizen_name: 'Rajesh Kumar'
+  },
+  {
+    application_id: 6,
+    bid_amount: 4000,
+    proposal: 'Full road resurfacing with heavy machinery.',
+    application_status: 'pending',
+    tender_id: 5,
+    priority: 'high',
+    tender_status: 'open',
+    deadline: null,
+    estimated_cost: 4500,
+    complaint_id: 5,
+    category: 'road_damage',
+    description: 'Road surface completely damaged after heavy rains. Urgent repair needed.',
+    latitude: 19.068,
+    longitude: 72.868,
+    image_url: null,
+    complaint_status: 'tender_created',
+    created_at: 2026-05-21T14:54:37.000Z,
+    citizen_name: 'Amit Singh'
+  }
+]
+Vendor: { vendor_id: 1 }
+Applications: [
+  {
+    application_id: 1,
+    bid_amount: 1900,
+    proposal: 'Can complete pothole repair within 2 days with quality materials.',
+    application_status: 'accepted',
+    tender_id: 1,
+    priority: 'high',
+    tender_status: 'completed',
+    deadline: null,
+    estimated_cost: 2100,
+    complaint_id: 1,
+    category: 'pothole',
+    description: 'Large pothole on main road causing traffic issues and accidents. Approximately 3 meters wide.',
+    latitude: 19.075,
+    longitude: 72.877,
+    image_url: null,
+    complaint_status: 'completed',
+    created_at: 2026-05-21T14:54:37.000Z,
+    citizen_name: 'Rajesh Kumar'
+  },
+  {
+    application_id: 6,
+    bid_amount: 4000,
+    proposal: 'Full road resurfacing with heavy machinery.',
+    application_status: 'pending',
+    tender_id: 5,
+    priority: 'high',
+    tender_status: 'open',
+    deadline: null,
+    estimated_cost: 4500,
+    complaint_id: 5,
+    category: 'road_damage',
+    description: 'Road surface completely damaged after heavy rains. Urgent repair needed.',
+    latitude: 19.068,
+    longitude: 72.868,
+    image_url: null,
+    complaint_status: 'tender_created',
+    created_at: 2026-05-21T14:54:37.000Z,
+    citizen_name: 'Amit Singh'
+  }
+]
+Vendor: { vendor_id: 1 }
+Applications: [
+  {
+    application_id: 1,
+    bid_amount: 1900,
+    proposal: 'Can complete pothole repair within 2 days with quality materials.',
+    application_status: 'accepted',
+    tender_id: 1,
+    priority: 'high',
+    tender_status: 'completed',
+    deadline: null,
+    estimated_cost: 2100,
+    complaint_id: 1,
+    category: 'pothole',
+    description: 'Large pothole on main road causing traffic issues and accidents. Approximately 3 meters wide.',
+    latitude: 19.075,
+    longitude: 72.877,
+    image_url: null,
+    complaint_status: 'completed',
+    created_at: 2026-05-21T14:54:37.000Z,
+    citizen_name: 'Rajesh Kumar'
+  },
+  {
+    application_id: 6,
+    bid_amount: 4000,
+    proposal: 'Full road resurfacing with heavy machinery.',
+    application_status: 'pending',
+    tender_id: 5,
+    priority: 'high',
+    tender_status: 'open',
+    deadline: null,
+    estimated_cost: 4500,
+    complaint_id: 5,
+    category: 'road_damage',
+    description: 'Road surface completely damaged after heavy rains. Urgent repair needed.',
+    latitude: 19.068,
+    longitude: 72.868,
+    image_url: null,
+    complaint_status: 'tender_created',
+    created_at: 2026-05-21T14:54:37.000Z,
+    citizen_name: 'Amit Singh'
+  }
+]
+Vendor: { vendor_id: 1 }
+Applications: [
+  {
+    application_id: 1,
+    bid_amount: 1900,
+    proposal: 'Can complete pothole repair within 2 days with quality materials.',
+    application_status: 'accepted',
+    tender_id: 1,
+    priority: 'high',
+    tender_status: 'completed',
+    deadline: null,
+    estimated_cost: 2100,
+    complaint_id: 1,
+    category: 'pothole',
+    description: 'Large pothole on main road causing traffic issues and accidents. Approximately 3 meters wide.',
+    latitude: 19.075,
+    longitude: 72.877,
+    image_url: null,
+    complaint_status: 'completed',
+    created_at: 2026-05-21T14:54:37.000Z,
+    citizen_name: 'Rajesh Kumar'
+  },
+  {
+    application_id: 6,
+    bid_amount: 4000,
+    proposal: 'Full road resurfacing with heavy machinery.',
+    application_status: 'pending',
+    tender_id: 5,
+    priority: 'high',
+    tender_status: 'open',
+    deadline: null,
+    estimated_cost: 4500,
+    complaint_id: 5,
+    category: 'road_damage',
+    description: 'Road surface completely damaged after heavy rains. Urgent repair needed.',
+    latitude: 19.068,
+    longitude: 72.868,
+    image_url: null,
+    complaint_status: 'tender_created',
+    created_at: 2026-05-21T14:54:37.000Z,
+    citizen_name: 'Amit Singh'
+  }
+]
+Vendor: { vendor_id: 1 }
+Applications: [
+  {
+    application_id: 1,
+    bid_amount: 1900,
+    proposal: 'Can complete pothole repair within 2 days with quality materials.',
+    application_status: 'accepted',
+    tender_id: 1,
+    priority: 'high',
+    tender_status: 'completed',
+    deadline: null,
+    estimated_cost: 2100,
+    complaint_id: 1,
+    category: 'pothole',
+    description: 'Large pothole on main road causing traffic issues and accidents. Approximately 3 meters wide.',
+    latitude: 19.075,
+    longitude: 72.877,
+    image_url: null,
+    complaint_status: 'completed',
+    created_at: 2026-05-21T14:54:37.000Z,
+    citizen_name: 'Rajesh Kumar'
+  },
+  {
+    application_id: 6,
+    bid_amount: 4000,
+    proposal: 'Full road resurfacing with heavy machinery.',
+    application_status: 'pending',
+    tender_id: 5,
+    priority: 'high',
+    tender_status: 'open',
+    deadline: null,
+    estimated_cost: 4500,
+    complaint_id: 5,
+    category: 'road_damage',
+    description: 'Road surface completely damaged after heavy rains. Urgent repair needed.',
+    latitude: 19.068,
+    longitude: 72.868,
+    image_url: null,
+    complaint_status: 'tender_created',
+    created_at: 2026-05-21T14:54:37.000Z,
+    citizen_name: 'Amit Singh'
+  }
+]
+Vendor: { vendor_id: 1 }
+Applications: [
+  {
+    application_id: 1,
+    bid_amount: 1900,
+    proposal: 'Can complete pothole repair within 2 days with quality materials.',
+    application_status: 'accepted',
+    tender_id: 1,
+    priority: 'high',
+    tender_status: 'completed',
+    deadline: null,
+    estimated_cost: 2100,
+    complaint_id: 1,
+    category: 'pothole',
+    description: 'Large pothole on main road causing traffic issues and accidents. Approximately 3 meters wide.',
+    latitude: 19.075,
+    longitude: 72.877,
+    image_url: null,
+    complaint_status: 'completed',
+    created_at: 2026-05-21T14:54:37.000Z,
+    citizen_name: 'Rajesh Kumar'
+  },
+  {
+    application_id: 6,
+    bid_amount: 4000,
+    proposal: 'Full road resurfacing with heavy machinery.',
+    application_status: 'pending',
+    tender_id: 5,
+    priority: 'high',
+    tender_status: 'open',
+    deadline: null,
+    estimated_cost: 4500,
+    complaint_id: 5,
+    category: 'road_damage',
+    description: 'Road surface completely damaged after heavy rains. Urgent repair needed.',
+    latitude: 19.068,
+    longitude: 72.868,
+    image_url: null,
+    complaint_status: 'tender_created',
+    created_at: 2026-05-21T14:54:37.000Z,
+    citizen_name: 'Amit Singh'
+  }
+]
+👤 User connected: 3ij36LDHhO45nEhFAAAL
+🔌 User disconnected
+Vendor: { vendor_id: 1 }
+Applications: [
+  {
+    application_id: 1,
+    bid_amount: 1900,
+    proposal: 'Can complete pothole repair within 2 days with quality materials.',
+    application_status: 'accepted',
+    tender_id: 1,
+    priority: 'high',
+    tender_status: 'completed',
+    deadline: null,
+    estimated_cost: 2100,
+    complaint_id: 1,
+    category: 'pothole',
+    description: 'Large pothole on main road causing traffic issues and accidents. Approximately 3 meters wide.',
+    latitude: 19.075,
+    longitude: 72.877,
+    image_url: null,
+    complaint_status: 'completed',
+    created_at: 2026-05-21T14:54:37.000Z,
+    citizen_name: 'Rajesh Kumar'
+  },
+  {
+    application_id: 6,
+    bid_amount: 4000,
+    proposal: 'Full road resurfacing with heavy machinery.',
+    application_status: 'pending',
+    tender_id: 5,
+    priority: 'high',
+    tender_status: 'open',
+    deadline: null,
+    estimated_cost: 4500,
+    complaint_id: 5,
+    category: 'road_damage',
+    description: 'Road surface completely damaged after heavy rains. Urgent repair needed.',
+    latitude: 19.068,
+    longitude: 72.868,
+    image_url: null,
+    complaint_status: 'tender_created',
+    created_at: 2026-05-21T14:54:37.000Z,
+    citizen_name: 'Amit Singh'
+  }
+]
+Vendor: { vendor_id: 1 }
+Applications: [
+  {
+    application_id: 1,
+    bid_amount: 1900,
+    proposal: 'Can complete pothole repair within 2 days with quality materials.',
+    application_status: 'accepted',
+    tender_id: 1,
+    priority: 'high',
+    tender_status: 'completed',
+    deadline: null,
+    estimated_cost: 2100,
+    complaint_id: 1,
+    category: 'pothole',
+    description: 'Large pothole on main road causing traffic issues and accidents. Approximately 3 meters wide.',
+    latitude: 19.075,
+    longitude: 72.877,
+    image_url: null,
+    complaint_status: 'completed',
+    created_at: 2026-05-21T14:54:37.000Z,
+    citizen_name: 'Rajesh Kumar'
+  },
+  {
+    application_id: 6,
+    bid_amount: 4000,
+    proposal: 'Full road resurfacing with heavy machinery.',
+    application_status: 'pending',
+    tender_id: 5,
+    priority: 'high',
+    tender_status: 'open',
+    deadline: null,
+    estimated_cost: 4500,
+    complaint_id: 5,
+    category: 'road_damage',
+    description: 'Road surface completely damaged after heavy rains. Urgent repair needed.',
+    latitude: 19.068,
+    longitude: 72.868,
+    image_url: null,
+    complaint_status: 'tender_created',
+    created_at: 2026-05-21T14:54:37.000Z,
+    citizen_name: 'Amit Singh'
+  }
+]
+👤 User connected: XgKLbZo3lYi-XnOcAAAO
+🔌 User disconnected
+🔌 User disconnected
+👤 User connected: -Z2ve-G-K922wpJUAAAQ
+📡 Socket -Z2ve-G-K922wpJUAAAQ joined room: user_1
+🔌 User disconnected
+👤 User connected: iinr5-BjrGPEoDFFAAAS
+📡 Socket iinr5-BjrGPEoDFFAAAS joined room: user_1
+🔌 User disconnected
+👤 User connected: JUeT7D53wN0J0wbgAAAU
+📡 Socket JUeT7D53wN0J0wbgAAAU joined room: user_1
+🔌 User disconnected
+👤 User connected: 61KpwQlKdv23nFbRAAAW
+📡 Socket 61KpwQlKdv23nFbRAAAW joined room: user_1
+🔌 User disconnected
+👤 User connected: FEiJmziZFcYvOzbtAAAY
+📡 Socket FEiJmziZFcYvOzbtAAAY joined room: user_2
+=== GET /api/complaints/my ===
+Authenticated User: {"user_id":2,"email":"rajesh@gmail.com","role":"citizen","iat":1779388001,"exp":1779391601}
+Complaints found: 2
+=== GET /api/complaints/my ===
+Authenticated User: {"user_id":2,"email":"rajesh@gmail.com","role":"citizen","iat":1779388001,"exp":1779391601}
+Complaints found: 2
+=== GET /api/complaints/my ===
+Authenticated User: {"user_id":2,"email":"rajesh@gmail.com","role":"citizen","iat":1779388001,"exp":1779391601}
+Complaints found: 2
+=== GET /api/complaints/my ===
+Authenticated User: {"user_id":2,"email":"rajesh@gmail.com","role":"citizen","iat":1779388001,"exp":1779391601}
+Complaints found: 2
+👤 User connected: SjYc2HuTzFA1vURMAAAa
+🔌 User disconnected
+=== GET /api/complaints/my ===
+Authenticated User: {"user_id":2,"email":"rajesh@gmail.com","role":"citizen","iat":1779388001,"exp":1779391601}
+Complaints found: 2
+=== GET /api/complaints/my ===
+Authenticated User: {"user_id":2,"email":"rajesh@gmail.com","role":"citizen","iat":1779388001,"exp":1779391601}
+Complaints found: 2
+👤 User connected: n6mNC3aXC5XOE54yAAAc
+🔌 User disconnected
+=== GET /api/complaints/my ===
+Authenticated User: {"user_id":2,"email":"rajesh@gmail.com","role":"citizen","iat":1779388001,"exp":1779391601}
+Complaints found: 2
+=== GET /api/complaints/my ===
+Authenticated User: {"user_id":2,"email":"rajesh@gmail.com","role":"citizen","iat":1779388001,"exp":1779391601}
+Complaints found: 2
+👤 User connected: aKnZZySnXDWu1mDvAAAe

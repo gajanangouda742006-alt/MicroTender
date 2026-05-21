@@ -4,6 +4,12 @@ const { authenticate, authorize } = require('../middleware/auth');
 const { autoSelectVendors, findNearbyVendors } = require('../services/vendorMatching');
 const { detectVendorMisuse, logFraudEvent } = require('../services/antifraud');
 const { estimateCost } = require('../services/costEstimation');
+const { getRecommendedVendorsForTender } = require('../services/vendorRecommendationService');
+const {
+  assignTenderToVendor,
+  reviewCompletion,
+  getComplaintLifecycleDetails,
+} = require('../services/complaintLifecycleService');
 const notifications = require('./notifications');
 
 const router = express.Router();
@@ -189,113 +195,173 @@ router.post('/complaint/:id/reject', async (req, res) => {
 // POST /api/admin/assign-vendor
 router.post('/assign-vendor', async (req, res) => {
   try {
-    const { tender_id, vendor_id } = req.body;
+    const { tender_id, vendor_id, notes, mode } = req.body;
     if (!tender_id || !vendor_id)
       return res.status(400).json({ error: 'Tender ID and Vendor ID are required.' });
+    const result = await assignTenderToVendor({
+      app: req.app,
+      tenderId: tender_id,
+      vendorId: vendor_id,
+      adminId: req.user.user_id,
+      notes,
+      mode: mode || 'manual',
+    });
 
-    const tender = await db.get('SELECT * FROM micro_tenders WHERE tender_id = ?', [tender_id]);
-    if (!tender) return res.status(404).json({ error: 'Tender not found.' });
-
-    const vendor = await db.get('SELECT * FROM vendors WHERE vendor_id = ?', [vendor_id]);
-    if (!vendor) return res.status(404).json({ error: 'Vendor not found.' });
-
-    await db.run("UPDATE micro_tenders SET assigned_vendor_id = ?, status = 'assigned' WHERE tender_id = ?", [vendor_id, tender_id]);
-    await db.run("UPDATE complaints SET status = 'assigned', updated_at = NOW() WHERE complaint_id = ?", [tender.complaint_id]);
-    await db.run("UPDATE applications SET status = 'accepted' WHERE tender_id = ? AND vendor_id = ?", [tender_id, vendor_id]);
-    await db.run("UPDATE applications SET status = 'rejected' WHERE tender_id = ? AND vendor_id != ?", [tender_id, vendor_id]);
-
-    const citizen = await db.get("SELECT c.user_id, c.category FROM complaints c WHERE c.complaint_id = ?", [tender.complaint_id]);
-    if (citizen) {
-      await notifications.sendNotification(req.app, citizen.user_id, 'Vendor Assigned',
-        `A vendor has been assigned to resolve your issue.`, 'success');
-    }
-    await notifications.sendNotification(req.app, vendor.user_id, 'Bid Accepted',
-      `Congratulations! Your bid has been accepted.`, 'success');
-
-    const otherVendors = await db.all("SELECT vendor_id FROM applications WHERE tender_id = ? AND vendor_id != ?", [tender_id, vendor_id]);
-    for(const v of otherVendors) {
-       const user = await db.get('SELECT user_id FROM vendors WHERE vendor_id = ?', [v.vendor_id]);
-       if(user) {
-         await notifications.sendNotification(req.app, user.user_id, 'Bid Rejected', 'Your bid was not selected for this tender.', 'info');
-       }
-    }
-
-    res.json({ message: 'Vendor assigned successfully' });
+    res.json({ message: 'Vendor assigned successfully', assignment: result });
   } catch (err) {
     console.error('Assign vendor error:', err);
-    res.status(500).json({ error: 'Failed to assign vendor.' });
+    res.status(err.status || 500).json({ error: err.message || 'Failed to assign vendor.' });
   }
 });
 
 // PUT /api/admin/tenders/:id/verify
 router.put('/tenders/:id/verify', async (req, res) => {
   try {
-    const tenderId = req.params.id;
-    
-    const tender = await db.get('SELECT * FROM micro_tenders WHERE tender_id = ?', [tenderId]);
-    if (!tender) return res.status(404).json({ error: 'Tender not found.' });
+    await reviewCompletion({
+      app: req.app,
+      tenderId: req.params.id,
+      action: 'approve',
+      adminId: req.user.user_id,
+      notes: req.body?.notes || '',
+    });
+    res.json({ message: 'Tender verified successfully', success: true });
+  } catch (err) {
+    console.error('Verify tender error:', err);
+    res.status(err.status || 500).json({ error: err.message || 'Failed to verify tender.' });
+  }
+});
 
-    await db.run(`
-      UPDATE micro_tenders
-      SET verification_status = 'verified', status = 'closed'
-      WHERE tender_id = ?
-    `, [tenderId]);
-
-    // Send notifications
-    const citizen = await db.get("SELECT c.user_id FROM complaints c WHERE c.complaint_id = ?", [tender.complaint_id]);
-    if (citizen) {
-      await notifications.sendNotification(req.app, citizen.user_id, 'Completion Verified', 'Admin has verified that your issue was successfully resolved.', 'success');
+// POST /api/admin/verify-completion
+router.post('/verify-completion', async (req, res) => {
+  try {
+    const { tender_id, action, notes } = req.body;
+    if (!tender_id || !action) {
+      return res.status(400).json({ error: 'tender_id and action are required.' });
     }
 
-    if (tender.assigned_vendor_id) {
-      const vendor = await db.get("SELECT user_id FROM vendors WHERE vendor_id = ?", [tender.assigned_vendor_id]);
-      if (vendor) {
-        await notifications.sendNotification(req.app, vendor.user_id, 'Payment Authorized', 'Your work has been verified. Payment has been authorized.', 'success');
+    await reviewCompletion({
+      app: req.app,
+      tenderId: tender_id,
+      action,
+      adminId: req.user.user_id,
+      notes: notes || '',
+    });
+
+    res.json({ success: true, message: 'Completion review updated.' });
+  } catch (err) {
+    console.error('Verify completion error:', err);
+    res.status(err.status || 500).json({ error: err.message || 'Failed to update completion review.' });
+  }
+});
+
+// GET /api/admin/complaints/:id
+router.get('/complaints/:id', async (req, res) => {
+  try {
+    const data = await getComplaintLifecycleDetails(req.params.id);
+    if (!data) return res.status(404).json({ error: 'Complaint not found.' });
+    res.json(data);
+  } catch (err) {
+    console.error('Admin complaint detail error:', err);
+    res.status(500).json({ error: 'Failed to get complaint details.' });
+  }
+});
+
+// POST /api/admin/tenders/:id/auto-assign-applications
+router.post('/tenders/:id/auto-assign-applications', async (req, res) => {
+  try {
+    const tenderId = req.params.id;
+    const tender = await db.get('SELECT * FROM micro_tenders WHERE tender_id = ?', [tenderId]);
+    if (!tender) return res.status(404).json({ error: 'Tender not found.' });
+    if (tender.assigned_vendor_id) return res.status(400).json({ error: 'Tender already assigned.' });
+
+    const applications = await db.all(`
+      SELECT a.*, v.rating_avg, v.experience_years, v.total_jobs_completed
+      FROM applications a
+      JOIN vendors v ON a.vendor_id = v.vendor_id
+      WHERE a.tender_id = ? AND a.status = 'pending'
+    `, [tenderId]);
+
+    if (applications.length === 0) {
+      return res.status(400).json({ error: 'No pending applications to choose from.' });
+    }
+
+    // AI Scoring logic
+    const maxExp = Math.max(...applications.map(a => a.experience_years)) || 1;
+    const minBid = Math.min(...applications.map(a => a.bid_amount)) || 1;
+    
+    let bestApp = null;
+    let maxScore = -1;
+
+    for (const app of applications) {
+      const ratingScore = (app.rating_avg / 5) * 40; 
+      const bidScore = (minBid / app.bid_amount) * 35; 
+      const expScore = (app.experience_years / maxExp) * 25;
+      const score = ratingScore + bidScore + expScore;
+      
+      if (score > maxScore) {
+        maxScore = score;
+        bestApp = app;
       }
     }
 
-    res.json({ success: true, message: 'Work verified successfully' });
+    const vendor_id = bestApp.vendor_id;
+    await db.run("UPDATE micro_tenders SET assigned_vendor_id = ?, status = 'assigned' WHERE tender_id = ?", [vendor_id, tenderId]);
+    await db.run("UPDATE complaints SET status = 'assigned', updated_at = NOW() WHERE complaint_id = ?", [tender.complaint_id]);
+    await db.run("UPDATE applications SET status = 'accepted' WHERE tender_id = ? AND vendor_id = ?", [tenderId, vendor_id]);
+    await db.run("UPDATE applications SET status = 'rejected' WHERE tender_id = ? AND vendor_id != ?", [tenderId, vendor_id]);
+
+    const citizen = await db.get("SELECT c.user_id FROM complaints c WHERE c.complaint_id = ?", [tender.complaint_id]);
+    if (citizen) {
+      await notifications.sendNotification(req.app, citizen.user_id, 'Vendor Assigned', 'A vendor has been auto-assigned to resolve your issue.', 'success');
+    }
+
+    const vendorUser = await db.get('SELECT user_id FROM vendors WHERE vendor_id = ?', [vendor_id]);
+    if (vendorUser) {
+      await notifications.sendNotification(req.app, vendorUser.user_id, 'Bid Accepted', 'Congratulations! Your bid was auto-selected.', 'success');
+    }
+
+    for(const app of applications) {
+      if (app.vendor_id !== vendor_id) {
+         const user = await db.get('SELECT user_id FROM vendors WHERE vendor_id = ?', [app.vendor_id]);
+         if(user) {
+           await notifications.sendNotification(req.app, user.user_id, 'Bid Rejected', 'Your bid was not selected for this tender.', 'info');
+         }
+      }
+    }
+
+    res.json({ message: 'Vendor auto-assigned successfully', assigned_vendor_id: vendor_id });
   } catch (err) {
-    console.error('Verification error:', err);
-    res.status(500).json({ error: 'Failed to verify work.' });
+    console.error('Auto assign error:', err);
+    res.status(500).json({ error: 'Failed to auto-assign vendor.' });
   }
 });
 
 // POST /api/admin/auto-assign/:tenderId
 router.post('/auto-assign/:tenderId', async (req, res) => {
   try {
-    const tender = await db.get(`
-      SELECT mt.*, c.latitude, c.longitude, c.category
-      FROM micro_tenders mt
-      JOIN complaints c ON mt.complaint_id = c.complaint_id
-      WHERE mt.tender_id = ?
-    `, [req.params.tenderId]);
-
-    if (!tender) return res.status(404).json({ error: 'Tender not found.' });
-    if (!tender.latitude || !tender.longitude)
-      return res.status(400).json({ error: 'Complaint has no GPS location.' });
-
-    const topVendors = await autoSelectVendors(tender.latitude, tender.longitude, tender.category);
-    if (topVendors.length === 0) return res.status(404).json({ error: 'No nearby vendors found.' });
-
-    const bestVendor = topVendors[0];
-    await db.run("UPDATE micro_tenders SET assigned_vendor_id = ?, status = 'assigned' WHERE tender_id = ?",
-      [bestVendor.vendor_id, tender.tender_id]);
-    await db.run("UPDATE complaints SET status = 'assigned', updated_at = NOW() WHERE complaint_id = ?",
-      [tender.complaint_id]);
-
-    const citizen = await db.get("SELECT c.user_id, c.category FROM complaints c WHERE c.complaint_id = ?", [tender.complaint_id]);
-    if (citizen) {
-      await notifications.sendNotification(req.app, citizen.user_id, 'Vendor Assigned',
-        `A vendor has been assigned to resolve your issue.`, 'success');
+    const recommendations = await getRecommendedVendorsForTender(req.params.tenderId, 5);
+    if (recommendations.length === 0) {
+      return res.status(404).json({ error: 'No eligible vendors found.' });
     }
-    await notifications.sendNotification(req.app, bestVendor.user_id, 'Bid Accepted',
-      `You are recommended for a high-priority repair task.`, 'success');
 
-    res.json({ message: 'Auto-assigned to best matching vendor', assignedVendor: bestVendor, candidates: topVendors });
+    const bestVendor = recommendations[0];
+    await assignTenderToVendor({
+      app: req.app,
+      tenderId: req.params.tenderId,
+      vendorId: bestVendor.vendor_id,
+      adminId: req.user.user_id,
+      notes: 'Auto-assigned using lifecycle recommendation engine',
+      mode: 'auto',
+    });
+
+    res.json({
+      message: 'Auto-assigned to best matching vendor',
+      assignedVendor: bestVendor,
+      candidates: recommendations,
+    });
   } catch (err) {
     console.error('Auto-assign error:', err);
-    res.status(500).json({ error: 'Failed to auto-assign.' });
+    res.status(err.status || 500).json({ error: err.message || 'Failed to auto-assign.' });
   }
 });
 
@@ -466,6 +532,16 @@ router.get('/verifications', async (req, res) => {
   } catch (err) {
     console.error('Verifications fetch error:', err);
     res.status(500).json({ error: 'Failed to fetch verifications.' });
+  }
+});
+
+router.get('/activity', async (req, res) => {
+  try {
+    const logs = await db.all('SELECT * FROM dashboard_activity ORDER BY created_at DESC LIMIT 20');
+    res.json({ logs });
+  } catch (err) {
+    console.error('Activity fetch error:', err);
+    res.status(500).json({ error: 'Failed to fetch activity logs.' });
   }
 });
 

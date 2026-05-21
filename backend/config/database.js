@@ -175,6 +175,8 @@ db.initDatabase = async function () {
       title VARCHAR(255) NOT NULL,
       message TEXT NOT NULL,
       type VARCHAR(50) DEFAULT 'info',
+      action_url VARCHAR(255),
+      metadata LONGTEXT,
       is_read TINYINT(1) DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
@@ -191,6 +193,7 @@ db.initDatabase = async function () {
       latitude DOUBLE,
       longitude DOUBLE,
       progress_percentage INT DEFAULT 0,
+      update_type VARCHAR(50) DEFAULT 'progress',
       verification_status VARCHAR(50) DEFAULT 'verified',
       verification_reasoning TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -199,9 +202,73 @@ db.initDatabase = async function () {
     )
   `);
 
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS vendor_assignments (
+      assignment_id INT PRIMARY KEY AUTO_INCREMENT,
+      tender_id INT NOT NULL,
+      complaint_id INT NOT NULL,
+      vendor_id INT NOT NULL,
+      assigned_by INT,
+      assignment_mode VARCHAR(50) DEFAULT 'manual',
+      ai_score DOUBLE DEFAULT 0,
+      bid_amount DOUBLE DEFAULT 0,
+      notes TEXT,
+      status VARCHAR(50) DEFAULT 'assigned',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      FOREIGN KEY (tender_id) REFERENCES micro_tenders(tender_id) ON DELETE CASCADE,
+      FOREIGN KEY (complaint_id) REFERENCES complaints(complaint_id) ON DELETE CASCADE,
+      FOREIGN KEY (vendor_id) REFERENCES vendors(vendor_id) ON DELETE CASCADE,
+      FOREIGN KEY (assigned_by) REFERENCES users(user_id) ON DELETE SET NULL
+    )
+  `);
+
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS completion_proofs (
+      proof_id INT PRIMARY KEY AUTO_INCREMENT,
+      tender_id INT NOT NULL,
+      complaint_id INT NOT NULL,
+      vendor_id INT NOT NULL,
+      submitted_by INT NOT NULL,
+      completion_note TEXT,
+      cover_image_url TEXT,
+      image_urls LONGTEXT,
+      progress_snapshot INT DEFAULT 100,
+      ai_verdict VARCHAR(50) DEFAULT 'pending',
+      ai_summary TEXT,
+      status VARCHAR(50) DEFAULT 'pending',
+      review_notes TEXT,
+      submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      reviewed_at DATETIME NULL,
+      FOREIGN KEY (tender_id) REFERENCES micro_tenders(tender_id) ON DELETE CASCADE,
+      FOREIGN KEY (complaint_id) REFERENCES complaints(complaint_id) ON DELETE CASCADE,
+      FOREIGN KEY (vendor_id) REFERENCES vendors(vendor_id) ON DELETE CASCADE,
+      FOREIGN KEY (submitted_by) REFERENCES users(user_id) ON DELETE CASCADE
+    )
+  `);
+
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS vendor_reviews (
+      vendor_review_id INT PRIMARY KEY AUTO_INCREMENT,
+      rating_id INT NOT NULL UNIQUE,
+      vendor_id INT NOT NULL,
+      complaint_id INT NOT NULL,
+      user_id INT NOT NULL,
+      rating INT NOT NULL,
+      review TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (rating_id) REFERENCES ratings(rating_id) ON DELETE CASCADE,
+      FOREIGN KEY (vendor_id) REFERENCES vendors(vendor_id) ON DELETE CASCADE,
+      FOREIGN KEY (complaint_id) REFERENCES complaints(complaint_id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+      UNIQUE KEY uq_vendor_review_complaint_user (complaint_id, user_id)
+    )
+  `);
+
   try {
     await pool.execute(`ALTER TABLE work_updates ADD COLUMN verification_status VARCHAR(50) DEFAULT 'verified'`);
     await pool.execute(`ALTER TABLE work_updates ADD COLUMN verification_reasoning TEXT`);
+    try { await pool.execute(`ALTER TABLE work_updates ADD COLUMN update_type VARCHAR(50) DEFAULT 'progress'`); } catch (e) {}
     try { await pool.execute('ALTER TABLE micro_tenders ADD COLUMN completion_image VARCHAR(255)'); } catch (e) {}
     try { await pool.execute('ALTER TABLE micro_tenders ADD COLUMN completion_note TEXT'); } catch (e) {}
     try { await pool.execute('ALTER TABLE micro_tenders ADD COLUMN completed_at TIMESTAMP NULL'); } catch (e) {}
@@ -242,6 +309,19 @@ db.initDatabase = async function () {
   try { await pool.execute(`ALTER TABLE ratings ADD COLUMN proof_image VARCHAR(255)`); } catch (e) {}
   try { await pool.execute(`ALTER TABLE ratings ADD COLUMN ai_sentiment VARCHAR(50)`); } catch (e) {}
   try { await pool.execute(`ALTER TABLE ratings ADD COLUMN is_verified BOOLEAN DEFAULT FALSE`); } catch (e) {}
+
+  // Migrate notifications table columns if they do not exist
+  try { await pool.execute(`ALTER TABLE notifications ADD COLUMN action_url VARCHAR(255)`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE notifications ADD COLUMN metadata LONGTEXT`); } catch (e) {}
+
+  // Migrate completion_proofs table columns if they do not exist
+  try { await pool.execute(`ALTER TABLE completion_proofs ADD COLUMN cover_image_url TEXT`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE completion_proofs ADD COLUMN image_urls LONGTEXT`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE completion_proofs ADD COLUMN progress_snapshot INT DEFAULT 100`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE completion_proofs ADD COLUMN ai_verdict VARCHAR(50) DEFAULT 'pending'`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE completion_proofs ADD COLUMN ai_summary TEXT`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE completion_proofs ADD COLUMN review_notes TEXT`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE completion_proofs ADD COLUMN reviewed_at DATETIME NULL`); } catch (e) {}
 
   // Migrate complaints table columns if they do not exist
   try { await pool.execute(`ALTER TABLE complaints ADD COLUMN latitude DOUBLE`); } catch (e) {}
@@ -372,6 +452,11 @@ db.initDatabase = async function () {
     `CREATE INDEX idx_applications_tender ON applications(tender_id)`,
     `CREATE INDEX idx_applications_vendor ON applications(vendor_id)`,
     `CREATE INDEX idx_ratings_vendor ON ratings(vendor_id)`,
+    `CREATE INDEX idx_vendor_assignments_tender ON vendor_assignments(tender_id)`,
+    `CREATE INDEX idx_vendor_assignments_vendor ON vendor_assignments(vendor_id)`,
+    `CREATE INDEX idx_completion_proofs_tender ON completion_proofs(tender_id)`,
+    `CREATE INDEX idx_completion_proofs_vendor ON completion_proofs(vendor_id)`,
+    `CREATE INDEX idx_vendor_reviews_vendor ON vendor_reviews(vendor_id)`,
     `CREATE INDEX idx_fraud_user ON fraud_logs(user_id)`,
     `CREATE INDEX idx_notifications_user ON notifications(user_id)`,
     `CREATE INDEX idx_notifications_read ON notifications(is_read)`,

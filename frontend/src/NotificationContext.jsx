@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import api from './api';
 import toast from 'react-hot-toast';
@@ -9,6 +10,7 @@ const NotificationContext = createContext();
 export function NotificationProvider({ children }) {
   const auth = useAuth();
   const user = auth ? auth.user : null;
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [socket, setSocket] = useState(null);
@@ -74,6 +76,18 @@ export function NotificationProvider({ children }) {
     }
   };
 
+  const openNotification = async (notification) => {
+    if (!notification) return;
+
+    if (!notification.is_read) {
+      await markAsRead(notification.notification_id);
+    }
+
+    if (notification.action_url) {
+      navigate(notification.action_url);
+    }
+  };
+
   const markAllAsRead = async () => {
     try {
       await api.markAllNotificationsRead();
@@ -85,7 +99,7 @@ export function NotificationProvider({ children }) {
   };
 
   return (
-    <NotificationContext.Provider value={{ notifications, unreadCount, markAsRead, markAllAsRead }}>
+    <NotificationContext.Provider value={{ notifications, unreadCount, markAsRead, markAllAsRead, openNotification, socket }}>
       {children}
     </NotificationContext.Provider>
   );

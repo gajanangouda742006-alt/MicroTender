@@ -50,20 +50,29 @@ const getTransporter = async () => {
  * 
  * @param {object} app Express application instance to fetch Socket.IO ('io')
  * @param {number} userId The user_id of the recipient
- * @param {object} params Object containing { title, message, type }
+ * @param {object} params Object containing { title, message, type, action_url, metadata }
  */
-async function sendSmartNotification(app, userId, { title, message, type = 'info' }) {
+async function sendSmartNotification(app, userId, { title, message, type = 'info', action_url = null, metadata = null }) {
   try {
+    const serializedMetadata = metadata ? JSON.stringify(metadata) : null;
+
     // 1. Database Storage
     const result = await db.run(
-      'INSERT INTO notifications (user_id, title, message, type, is_read) VALUES (?, ?, ?, ?, 0)',
-      [userId, title, message, type]
+      'INSERT INTO notifications (user_id, title, message, type, action_url, metadata, is_read) VALUES (?, ?, ?, ?, ?, ?, 0)',
+      [userId, title, message, type, action_url, serializedMetadata]
     );
 
     const notification = await db.get(
       'SELECT * FROM notifications WHERE notification_id = ?',
       [result.insertId]
     );
+    if (notification?.metadata) {
+      try {
+        notification.metadata = JSON.parse(notification.metadata);
+      } catch (error) {
+        notification.metadata = null;
+      }
+    }
 
     // 2. Fetch User Profile for Email/Phone Info
     const user = await db.get(

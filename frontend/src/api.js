@@ -1,9 +1,16 @@
+export const API_ORIGIN = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 const API_BASE = '/api';
+
+export function getAssetUrl(path) {
+  if (!path) return '';
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${API_ORIGIN}${path.startsWith('/') ? path : `/${path}`}`;
+}
 
 let isRefreshing = false;
 let refreshQueue = [];
 
-async function request(endpoint, options = {}, retried = false) {
+export async function request(endpoint, options = {}, retried = false) {
   const token = localStorage.getItem('token');
   const headers = { ...options.headers };
 
@@ -34,7 +41,8 @@ async function request(endpoint, options = {}, retried = false) {
     }
   }
 
-  const data = await res.json();
+  const text = await res.text();
+  const data = text ? JSON.parse(text) : {};
   if (!res.ok) {
     throw new Error(data.error || 'Request failed');
   }
@@ -70,6 +78,7 @@ async function refreshAccessToken(refreshToken) {
 }
 
 const api = {
+  request,
   // Auth
   login: (email, password) => request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
   register: (data) => request('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
@@ -83,6 +92,7 @@ const api = {
   // Complaints
   getComplaints: (params = '') => request(`/complaints${params ? '?' + params : ''}`),
   getMyComplaints: () => request(`/complaints/my`),
+  getCompletedComplaints: () => request('/complaints/completed'),
   getComplaint: (id) => request(`/complaints/${id}`),
   createComplaint: (formData) => request('/complaints', { method: 'POST', body: formData, headers: {} }),
   deleteComplaint: (id) => request(`/complaints/${id}`, { method: 'DELETE' }),
@@ -94,6 +104,8 @@ const api = {
     if (proofImage) formData.append('proof', proofImage);
     return request(`/complaints/${id}/rate`, { method: 'POST', body: formData });
   },
+  submitRating: (data) => request('/ratings', { method: 'POST', body: JSON.stringify(data) }),
+  getVendorRatings: (vendorId) => request(`/ratings/vendor/${vendorId}`),
   getScoreboard: () => request('/complaints/scoreboard/citizens'),
 
   // Tenders
@@ -108,14 +120,20 @@ const api = {
   updateVendorProfile: (data) => request('/vendors/profile', { method: 'PUT', body: JSON.stringify(data) }),
   getNearbyTenders: (radius) => request(`/vendors/nearby-tenders?radius=${radius || 5}`),
   applyToTender: (tenderId, data) => request(`/vendors/apply/${tenderId}`, { method: 'POST', body: JSON.stringify(data) }),
+  getMyApplications: () => request('/vendors/my-applications'),
+  getVendorComplaintDetails: (id) => request(`/vendors/complaints/${id}`),
   getMyJobs: () => request('/vendors/my-jobs'),
+  getAssignedWork: () => request('/vendors/assigned-work'),
+  getMyReviews: () => request('/ratings/mine'),
   submitCompletionProof: (tenderId, formData) => {
-    const token = localStorage.getItem('token');
-    return fetch(`${API_URL}/tenders/${tenderId}/complete`, {
-      method: 'PUT',
-      headers: { 'Authorization': `Bearer ${token}` },
-      body: formData
-    }).then(r => r.json());
+    if (!formData.has('tender_id')) {
+      formData.append('tender_id', tenderId);
+    }
+    return request('/work-updates/complete', {
+      method: 'POST',
+      body: formData,
+      headers: {},
+    });
   },
 
   // Work Updates
@@ -124,10 +142,12 @@ const api = {
 
   // Admin
   getTenderDetails: (id) => request(`/tenders/${id}`),
-  adminAction: (tender_id, action, notes) => request('/admin/tender-action', { method: 'POST', body: JSON.stringify({ tender_id, action, notes }) }),
+  getAdminComplaintDetails: (id) => request(`/admin/complaints/${id}`),
+  adminAction: (tender_id, action, notes) => request(`/admin/action/${tender_id}`, { method: 'POST', body: JSON.stringify({ action, notes }) }),
   autoAssign: (tender_id) => request(`/admin/auto-assign/${tender_id}`, { method: 'POST' }),
-  assignVendor: (tender_id, vendor_id) => request('/admin/assign-vendor', { method: 'POST', body: JSON.stringify({ tender_id, vendor_id }) }),
-  adminVerifyCompletion: (tenderId) => request(`/admin/tenders/${tenderId}/verify`, { method: 'PUT' }),
+  assignVendor: (tender_id, vendor_id, notes = '', mode = 'manual') => request('/tenders/assign', { method: 'POST', body: JSON.stringify({ tender_id, vendor_id, notes, mode }) }),
+  verifyCompletion: (tender_id, action, notes = '') => request('/admin/verify-completion', { method: 'POST', body: JSON.stringify({ tender_id, action, notes }) }),
+  adminVerifyCompletion: (tenderId, notes = '') => request(`/admin/tenders/${tenderId}/verify`, { method: 'PUT', body: JSON.stringify({ notes }) }),
   getDashboard: () => request('/admin/dashboard'),
   updateTenderCost: (id, manual_cost, selected_cost_type) => request(`/admin/tender/${id}/cost`, { method: 'PATCH', body: JSON.stringify({ manual_cost, selected_cost_type }) }),
   getFraudAlerts: (resolved) => request(`/admin/fraud-alerts${resolved !== undefined ? '?resolved=' + resolved : ''}`),

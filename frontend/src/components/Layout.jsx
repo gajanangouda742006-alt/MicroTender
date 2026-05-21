@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import logo from '../assets/logo.png';
 import { useAuth } from '../AuthContext';
-import { LayoutDashboard, FileText, MapPin, User, LogOut, Shield, AlertTriangle, Users, Briefcase, Trophy, ClipboardList, Menu, X, Bell, Sparkles, Mail, Phone, Calendar, Star, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, FileText, MapPin, User, LogOut, Shield, AlertTriangle, Users, Briefcase, Trophy, ClipboardList, Menu, X, Bell, Sparkles, Mail, Phone, Calendar, Star, ChevronRight, CheckCircle } from 'lucide-react';
 import NotificationBell from './NotificationBell';
 import ThemeToggle from './ThemeToggle';
 import { useState, useEffect } from 'react';
@@ -12,6 +12,7 @@ const navItems = {
     { to: '/citizen', icon: LayoutDashboard, label: 'Dashboard', end: true },
     { to: '/citizen/new-complaint', icon: FileText, label: 'New Complaint' },
     { to: '/citizen/my-complaints', icon: ClipboardList, label: 'My Complaints' },
+    { to: '/citizen/completed-complaints', icon: CheckCircle, label: 'Completed' },
     { to: '/citizen/scoreboard', icon: Trophy, label: 'Scoreboard' },
     { to: '/citizen/notifications', icon: Bell, label: 'Notifications' },
     { to: '/citizen/profile', icon: User, label: 'Profile' },
@@ -20,6 +21,8 @@ const navItems = {
     { to: '/vendor', icon: LayoutDashboard, label: 'Dashboard', end: true },
     { to: '/vendor/nearby', icon: MapPin, label: 'Nearby Tenders' },
     { to: '/vendor/my-jobs', icon: Briefcase, label: 'My Jobs' },
+    { to: '/vendor/assigned-work', icon: ClipboardList, label: 'Assigned Work' },
+    { to: '/vendor/reviews', icon: Star, label: 'Customer Reviews' },
     { to: '/vendor/notifications', icon: Bell, label: 'Notifications' },
     { to: '/vendor/profile', icon: User, label: 'Profile' },
   ],

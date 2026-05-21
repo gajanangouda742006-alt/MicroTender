@@ -4,7 +4,7 @@ import { Bell, BellOff, AlertTriangle, Shield, Check, Info, CheckCircle, AlertCi
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function NotificationsPanel() {
-  const { notifications, unreadCount, markAsRead } = useNotifications();
+  const { notifications, unreadCount, markAsRead, openNotification } = useNotifications();
   const [activeTab, setActiveTab] = useState('All');
   const [soundEnabled, setSoundEnabled] = useState(() => {
     return localStorage.getItem('mt_sound_enabled') !== 'false';
@@ -255,7 +255,7 @@ export default function NotificationsPanel() {
               {filteredList.map((n) => (
                 <div
                   key={n.notification_id}
-                  onClick={() => !n.is_read && markAsRead(n.notification_id)}
+                  onClick={() => handleNotificationClick(n)}
                   className={`group rounded-2xl p-4 border transition-all duration-300 relative flex items-start gap-4 cursor-pointer ${
                     !n.is_read
                       ? 'border-cyan-500/40 bg-cyan-500/5 hover:border-cyan-500/60'
@@ -318,3 +318,6 @@ export default function NotificationsPanel() {
     </div>
   );
 }
+  const handleNotificationClick = async (notification) => {
+    await openNotification(notification);
+  };

@@ -10,6 +10,9 @@ import { FileText, MapPin, Camera, Send, Star, Trophy, Clock, CheckCircle, Alert
 import AIInsightsPanel from '../components/AIInsightsPanel';
 import SkeletonLoader from '../components/SkeletonLoader';
 import { motion, AnimatePresence } from 'framer-motion';
+import { io } from 'socket.io-client';
+import toast from 'react-hot-toast';
+import CitizenCompletedComplaints from './CitizenCompletedComplaints';
 
 function Overview() {
   const { user } = useAuth();
@@ -475,13 +478,94 @@ function ComplaintDetail() {
   const id = window.location.pathname.split('/').pop();
   const [data, setData] = useState(null);
   const [rating, setRating] = useState({ score: 5, feedback: '', proof: null });
+  const [vendorDetails, setVendorDetails] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [hoveredStar, setHoveredStar] = useState(0);
 
-  useEffect(() => { api.getComplaint(id).then(setData).catch(console.error).finally(() => setLoading(false)); }, [id]);
+  useEffect(() => {
+    api.getComplaint(id)
+      .then(setData)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  const assignedVendorId = data?.tender?.assigned_vendor_id;
+
+  // Fetch reviews and aggregate stats when vendor is assigned
+  useEffect(() => {
+    if (assignedVendorId) {
+      api.getVendorRatings(assignedVendorId)
+        .then(setVendorDetails)
+        .catch(console.error);
+    }
+  }, [assignedVendorId]);
+
+  // Socket.IO Real-Time Update for rating details
+  useEffect(() => {
+    if (!assignedVendorId) return;
+
+    const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:5000');
+
+    socket.on('connect', () => {
+      console.log('📡 Connected to Socket.IO for real-time rating updates');
+    });
+
+    socket.on('rating_updated', (payload) => {
+      if (payload.vendor_id === assignedVendorId) {
+        console.log('🔥 Real-time rating update received:', payload);
+        
+        // Update stats
+        setVendorDetails(prev => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            vendor: {
+              ...prev.vendor,
+              rating_avg: payload.rating_avg,
+              total_ratings: payload.total_ratings
+            }
+          };
+        });
+
+        // Reload reviews list
+        api.getVendorRatings(assignedVendorId)
+          .then(setVendorDetails)
+          .catch(console.error);
+      }
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [assignedVendorId]);
 
   const submitRating = async () => {
-    try { await api.rateComplaint(id, rating.score, rating.feedback, rating.proof); alert('Rating submitted!'); window.location.reload(); }
-    catch (err) { alert(err.message); }
+    try {
+      const res = await api.submitRating({
+        complaint_id: parseInt(id),
+        score: rating.score,
+        feedback: rating.feedback
+      });
+
+      toast.success(res.message || 'Rating submitted successfully!');
+      
+      // Update local state to hide form and reflect rated status
+      setData(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          rating: res.rating
+        };
+      });
+
+      // Reload vendor data to reflect instantly
+      if (assignedVendorId) {
+        const details = await api.getVendorRatings(assignedVendorId);
+        setVendorDetails(details);
+      }
+    } catch (err) {
+      toast.error(err.message || 'Failed to submit rating.');
+    }
   };
 
   if (loading) return <div className="flex items-center justify-center py-20 font-bold text-text-tertiary uppercase tracking-widest text-xs">Loading case file...</div>;
@@ -635,32 +719,162 @@ function ComplaintDetail() {
         </div>
       </div>
       {tender && (
-        <div className="glass-card p-8 border border-border-primary shadow-soft mt-8">
+        <div className="glass-card p-8 border border-border-primary shadow-soft mt-8 hover:shadow-lg transition-all duration-300">
           <h2 className="text-xl font-bold text-text-primary mb-8 flex items-center gap-2 uppercase tracking-tight">
             <Briefcase size={22} className="text-secondary-500" /> Assigned Vendor Details
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div className="bg-bg-secondary rounded-2xl p-6 border border-border-primary shadow-inner col-span-2">
-              <span className="text-text-tertiary font-bold uppercase tracking-wider text-xs block mb-2">Assigned Specialist</span>
-              <p className="text-text-primary font-extrabold text-2xl truncate mt-1">{tender.vendor_company || tender.vendor_name || 'Analyzing Tenders...'}</p>
-              <p className="text-sm text-text-secondary mt-1">Phone: {tender.vendor_phone || '+91 9876543210'}</p>
-              <p className="text-sm text-amber-500 font-bold mt-2">⭐⭐⭐⭐☆ {tender.rating_avg || '4.7'}</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="bg-bg-secondary rounded-2xl p-6 border border-border-primary shadow-inner col-span-1 md:col-span-2 flex flex-col justify-between">
+              <div>
+                <span className="text-text-tertiary font-bold uppercase tracking-wider text-xs block mb-2">Assigned Specialist</span>
+                <p className="text-text-primary font-extrabold text-2xl truncate mt-1">{tender.vendor_company || tender.vendor_name || 'Analyzing Tenders...'}</p>
+                <p className="text-sm text-text-secondary mt-1.5 font-medium">Phone: {tender.vendor_phone || '+91 9876543210'}</p>
+              </div>
+              <div className="mt-4 pt-4 border-t border-border-primary/50 flex flex-wrap items-center gap-4">
+                <div className="flex flex-col">
+                  <span className="text-[10px] text-text-tertiary font-bold uppercase tracking-wider">Average Rating</span>
+                  <div className="flex items-center gap-2 mt-1">
+                    {(() => {
+                      const ratingVal = vendorDetails?.vendor?.rating_avg || tender.rating_avg || 0;
+                      const rounded = Math.round(ratingVal * 2) / 2;
+                      const stars = [];
+                      for (let i = 1; i <= 5; i++) {
+                        if (i <= rounded) {
+                          stars.push(<Star key={i} size={15} className="fill-amber-400 text-amber-400" />);
+                        } else if (i - 0.5 === rounded) {
+                          stars.push(
+                            <div key={i} className="relative inline-block">
+                              <Star size={15} className="text-text-tertiary opacity-30" />
+                              <div className="absolute top-0 left-0 w-[50%] overflow-hidden">
+                                <Star size={15} className="fill-amber-400 text-amber-400" />
+                              </div>
+                            </div>
+                          );
+                        } else {
+                          stars.push(<Star key={i} size={15} className="text-text-tertiary opacity-30" />);
+                        }
+                      }
+                      return (
+                        <>
+                          <div className="flex items-center gap-0.5">{stars}</div>
+                          <span className="text-sm font-extrabold text-text-primary">
+                            {Number(ratingVal).toFixed(1)} / 5.0
+                          </span>
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+                <div className="w-[1px] h-8 bg-border-primary/50 hidden sm:block"></div>
+                <div className="flex flex-col">
+                  <span className="text-[10px] text-text-tertiary font-bold uppercase tracking-wider">Total Reviews</span>
+                  <span className="text-sm font-extrabold text-text-primary mt-1">
+                    {vendorDetails?.vendor?.total_ratings || 0} reviews
+                  </span>
+                </div>
+                <div className="w-[1px] h-8 bg-border-primary/50 hidden sm:block"></div>
+                <div className="flex flex-col">
+                  <span className="text-[10px] text-text-tertiary font-bold uppercase tracking-wider">Jobs Completed</span>
+                  <span className="text-sm font-extrabold text-green-600 mt-1">
+                    {vendorDetails?.vendor?.total_jobs_completed || tender.total_jobs_completed || 0} completed
+                  </span>
+                </div>
+              </div>
             </div>
-            <div className="bg-bg-secondary rounded-2xl p-6 border border-border-primary shadow-inner">
-              <span className="text-text-tertiary font-bold uppercase tracking-wider text-xs block mb-3">Work Status</span>
-              <div className="flex"><StatusBadge status={tender.status} /></div>
+            <div className="bg-bg-secondary rounded-2xl p-6 border border-border-primary shadow-inner flex flex-col justify-between">
+              <div>
+                <span className="text-text-tertiary font-bold uppercase tracking-wider text-xs block mb-3">Work Status</span>
+                <div className="flex"><StatusBadge status={tender.status} /></div>
+              </div>
+              <div className="mt-6">
+                <span className="text-text-tertiary font-bold uppercase tracking-wider text-xs block mb-1">Est. Completion</span>
+                <p className="text-2xl font-extrabold text-blue-500">{tender.estimated_days || 3} Days</p>
+              </div>
             </div>
-            <div className="bg-bg-secondary rounded-2xl p-6 border border-border-primary shadow-inner">
-              <span className="text-text-tertiary font-bold uppercase tracking-wider text-xs block mb-2">Est. Completion</span>
-              <p className="text-2xl font-extrabold text-blue-500">{tender.estimated_days || 3} Days</p>
+          </div>
+
+          {/* Citizen Feedback View if Already Rated */}
+          {existingRating && (
+            <div className="bg-bg-secondary/60 rounded-2xl p-5 border border-border-primary mt-6 animate-fade-in">
+              <span className="text-xs font-bold text-text-tertiary uppercase tracking-wider block mb-2">Your Review for this Resolution</span>
+              <div className="flex items-center gap-2 mb-2">
+                {(() => {
+                  const stars = [];
+                  for (let i = 1; i <= 5; i++) {
+                    stars.push(
+                      <Star
+                        key={i}
+                        size={14}
+                        className={i <= existingRating.score ? 'fill-amber-400 text-amber-400' : 'text-text-tertiary opacity-30'}
+                      />
+                    );
+                  }
+                  return <div className="flex items-center gap-0.5">{stars}</div>;
+                })()}
+                <span className="text-sm font-extrabold text-text-primary">({existingRating.score}/5)</span>
+              </div>
+              <p className="text-sm text-text-secondary italic font-medium leading-relaxed">
+                "{existingRating.feedback || 'No written feedback provided.'}"
+              </p>
+              {existingRating.created_at && (
+                <span className="text-[10px] text-text-tertiary font-bold block mt-2 uppercase tracking-wide">
+                  Submitted on {new Date(existingRating.created_at).toLocaleDateString()}
+                </span>
+              )}
             </div>
+          )}
+
+          {/* Review History Component */}
+          <div className="mt-8 pt-8 border-t border-border-primary">
+            <h3 className="text-lg font-bold text-text-primary mb-6 flex items-center gap-2 uppercase tracking-tight">
+              <Trophy size={18} className="text-amber-400" /> Community Reviews ({vendorDetails?.reviews?.length || 0})
+            </h3>
+            {vendorDetails?.reviews && vendorDetails.reviews.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {vendorDetails.reviews.map((rev) => (
+                  <div key={rev.rating_id} className="bg-bg-secondary/30 hover:bg-bg-secondary/60 p-5 rounded-2xl border border-border-primary transition-all duration-300 flex flex-col justify-between hover:shadow-soft">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="font-extrabold text-sm text-text-primary">{rev.citizen_name || 'Anonymous Citizen'}</span>
+                        <div className="flex items-center gap-0.5">
+                          {(() => {
+                            const stars = [];
+                            for (let i = 1; i <= 5; i++) {
+                              stars.push(
+                                <Star
+                                  key={i}
+                                  size={12}
+                                  className={i <= rev.score ? 'fill-amber-400 text-amber-400' : 'text-text-tertiary opacity-30'}
+                                />
+                              );
+                            }
+                            return stars;
+                          })()}
+                        </div>
+                      </div>
+                      <p className="text-xs text-text-secondary italic leading-relaxed font-medium">
+                        "{rev.feedback || 'No written comment.'}"
+                      </p>
+                    </div>
+                    <div className="text-[9px] text-text-tertiary font-bold uppercase tracking-wider mt-4">
+                      {new Date(rev.created_at).toLocaleDateString()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 bg-bg-secondary/20 rounded-2xl border border-dashed border-border-primary">
+                <p className="text-sm text-text-tertiary font-bold uppercase tracking-wider text-xs">No previous reviews submitted for this vendor yet</p>
+              </div>
+            )}
           </div>
         </div>
       )}
-      {(complaint.status === 'completed' || tender?.status === 'completed' || tender?.status === 'closed') && !existingRating && (
-        <div className="glass-card p-10 border border-border-primary shadow-lg max-w-3xl mx-auto mt-10">
-          <h2 className="text-2xl font-extrabold text-text-primary mb-6 text-center flex items-center justify-center gap-3">
-            <Trophy className="text-secondary-500" /> Quality Assurance & Review
+
+      {complaint.status === 'completed' && !existingRating && (
+        <div className="glass-card p-10 border border-border-primary shadow-lg max-w-3xl mx-auto mt-10 hover:shadow-xl transition-all duration-300">
+          <h2 className="text-2xl font-extrabold text-text-primary mb-6 text-center flex items-center justify-center gap-3 uppercase tracking-tight">
+            <Trophy className="text-secondary-500 animate-bounce" /> Quality Assurance & Review
           </h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -674,31 +888,47 @@ function ComplaintDetail() {
             </div>
           </div>
 
-          <div className="bg-bg-secondary p-5 rounded-2xl border border-border-primary mb-8 text-center">
+          <div className="bg-bg-secondary p-5 rounded-2xl border border-border-primary mb-8 text-center shadow-inner">
             <span className="text-text-tertiary font-bold uppercase tracking-wider text-xs block mb-2">Vendor Note:</span>
-            <p className="text-text-primary italic font-medium">"{tender?.completion_note || 'Work completed successfully.'}"</p>
+            <p className="text-text-primary italic font-semibold">"{tender?.completion_note || 'Work completed successfully.'}"</p>
           </div>
 
-          <p className="text-text-secondary text-center mb-6 font-medium">Please rate the quality of issue resolution</p>
+          <p className="text-text-secondary text-center mb-6 font-bold uppercase tracking-wide text-xs">Please rate the quality of issue resolution</p>
+          
+          {/* Interactive Star Picker with Animated Hover Scale and Glows */}
           <div className="flex gap-4 mb-8 justify-center">
             {[1, 2, 3, 4, 5].map(s => (
-              <button key={s} onClick={() => setRating({ ...rating, score: s })}
-                className={`text-5xl transition-all hover:scale-125 transform ${s <= rating.score ? 'text-amber-500 drop-shadow-sm' : 'text-text-tertiary opacity-30 grayscale'}`}>
+              <button
+                key={s}
+                type="button"
+                onMouseEnter={() => setHoveredStar(s)}
+                onMouseLeave={() => setHoveredStar(0)}
+                onClick={() => setRating({ ...rating, score: s })}
+                className={`text-5xl transition-all duration-200 transform hover:scale-125 focus:outline-none ${
+                  s <= (hoveredStar || rating.score)
+                    ? 'text-amber-400 drop-shadow-[0_0_10px_rgba(251,191,36,0.6)] scale-110'
+                    : 'text-text-tertiary opacity-30 grayscale'
+                }`}
+              >
                 ⭐
               </button>
             ))}
           </div>
-          <div className="space-y-6">
-            <textarea value={rating.feedback} onChange={e => setRating({ ...rating, feedback: e.target.value })} rows={3} placeholder="Tell us more about the resolution quality..."
-              className="input-futuristic w-full text-base leading-relaxed" />
-            
-            <div className="flex flex-col gap-2">
-               <label className="text-xs font-bold text-text-tertiary uppercase tracking-widest flex items-center gap-2"><Camera size={14} className="text-secondary-500" /> Optional Proof Image</label>
-               <input type="file" accept="image/*" onChange={e => setRating({ ...rating, proof: e.target.files[0] })} className="file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-secondary-500/10 file:text-secondary-600 hover:file:bg-secondary-500/20 bg-bg-secondary text-text-secondary p-2 rounded-xl border border-border-primary text-sm transition-all" />
-            </div>
 
-            <button onClick={submitRating} className="btn-primary w-full py-4 text-lg font-extrabold active:scale-95 transition-all">
-              Submit Review
+          <div className="space-y-6">
+            <textarea
+              value={rating.feedback}
+              onChange={e => setRating({ ...rating, feedback: e.target.value })}
+              rows={3}
+              placeholder="Tell us more about the resolution quality and service..."
+              className="input-futuristic w-full text-base leading-relaxed"
+            />
+
+            <button
+              onClick={submitRating}
+              className="btn-primary w-full py-4 text-lg font-extrabold active:scale-95 hover:shadow-lg transition-all duration-300"
+            >
+              Submit Vendor Review
             </button>
           </div>
         </div>
@@ -782,6 +1012,7 @@ export default function CitizenDashboard() {
       <Route index element={<Overview />} />
       <Route path="new-complaint" element={<NewComplaint />} />
       <Route path="my-complaints" element={<MyComplaints />} />
+      <Route path="completed-complaints" element={<CitizenCompletedComplaints />} />
       <Route path="complaint/:id" element={<ComplaintDetail />} />
       <Route path="scoreboard" element={<Scoreboard />} />
       <Route path="notifications" element={<NotificationsPanel />} />

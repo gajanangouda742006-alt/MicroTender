@@ -198,11 +198,31 @@ router.get('/my-jobs', authenticate, authorize('vendor'), async (req, res) => {
     if (!vendor) return res.status(404).json({ error: 'Vendor profile not found.' });
 
     const jobs = await db.all(`
-      SELECT mt.*, c.category, c.description, c.latitude, c.longitude, c.image_url,
-             u.name as citizen_name, u.phone as citizen_phone
+      SELECT mt.*, c.complaint_id, c.category, c.description, c.latitude, c.longitude, c.image_url,
+             c.status as complaint_status,
+             u.name as citizen_name, u.phone as citizen_phone,
+             latest_update.progress_percentage as latest_progress,
+             latest_update.description as latest_update_note,
+             latest_update.created_at as latest_update_at,
+             cp.cover_image_url,
+             cp.image_urls,
+             cp.completion_note,
+             cp.status as completion_status
       FROM micro_tenders mt
       JOIN complaints c ON mt.complaint_id = c.complaint_id
       JOIN users u ON c.user_id = u.user_id
+      LEFT JOIN work_updates latest_update ON latest_update.update_id = (
+        SELECT update_id FROM work_updates
+        WHERE tender_id = mt.tender_id
+        ORDER BY created_at DESC
+        LIMIT 1
+      )
+      LEFT JOIN completion_proofs cp ON cp.proof_id = (
+        SELECT proof_id FROM completion_proofs
+        WHERE tender_id = mt.tender_id
+        ORDER BY submitted_at DESC
+        LIMIT 1
+      )
       WHERE mt.assigned_vendor_id = ?
       ORDER BY mt.created_at DESC
     `, [vendor.vendor_id]);
@@ -220,6 +240,175 @@ router.get('/my-jobs', authenticate, authorize('vendor'), async (req, res) => {
   } catch (err) {
     console.error('My jobs error:', err);
     res.status(500).json({ error: 'Failed to get jobs.' });
+  }
+});
+
+// GET /api/vendors/assigned-work
+router.get('/assigned-work', authenticate, authorize('vendor'), async (req, res) => {
+  try {
+    const vendor = await db.get('SELECT vendor_id FROM vendors WHERE user_id = ?', [req.user.user_id]);
+    if (!vendor) return res.status(404).json({ error: 'Vendor profile not found.' });
+
+    const jobs = await db.all(`
+      SELECT mt.*, c.complaint_id, c.category, c.description, c.latitude, c.longitude, c.image_url,
+             c.status as complaint_status, c.ai_analysis,
+             u.name as citizen_name, u.phone as citizen_phone,
+             latest_update.progress_percentage as latest_progress,
+             latest_update.description as latest_update_note,
+             latest_update.created_at as latest_update_at,
+             cp.cover_image_url,
+             cp.image_urls,
+             cp.completion_note,
+             cp.status as completion_status,
+             cp.review_notes as completion_review_notes
+      FROM micro_tenders mt
+      JOIN complaints c ON mt.complaint_id = c.complaint_id
+      JOIN users u ON c.user_id = u.user_id
+      LEFT JOIN work_updates latest_update ON latest_update.update_id = (
+        SELECT update_id FROM work_updates
+        WHERE tender_id = mt.tender_id
+        ORDER BY created_at DESC
+        LIMIT 1
+      )
+      LEFT JOIN completion_proofs cp ON cp.proof_id = (
+        SELECT proof_id FROM completion_proofs
+        WHERE tender_id = mt.tender_id
+        ORDER BY submitted_at DESC
+        LIMIT 1
+      )
+      WHERE mt.assigned_vendor_id = ?
+      ORDER BY FIELD(mt.status, 'assigned', 'in_progress', 'completed', 'closed', 'cancelled'), mt.created_at DESC
+    `, [vendor.vendor_id]);
+
+    res.json({
+      jobs: jobs.map((job) => ({
+        ...job,
+        image_urls: job.image_urls ? JSON.parse(job.image_urls) : [],
+      })),
+    });
+  } catch (err) {
+    console.error('Assigned work error:', err);
+    res.status(500).json({ error: 'Failed to get assigned work.' });
+  }
+});
+
+// GET /api/vendors/my-applications
+router.get('/my-applications', authenticate, authorize('vendor'), async (req, res) => {
+  try {
+    // Map authenticated user to vendor
+    const vendor = await db.get('SELECT vendor_id FROM vendors WHERE user_id = ?', [req.user.user_id]);
+    if (!vendor) return res.status(404).json({ error: 'Vendor profile not found.' });
+    console.log('Vendor:', vendor);
+    const applications = await db.all(`
+      SELECT
+        a.application_id,
+        a.bid_amount,
+        a.proposal,
+        a.status AS application_status,
+        mt.tender_id,
+        mt.priority,
+        mt.status AS tender_status,
+        mt.deadline,
+        mt.estimated_cost,
+        c.complaint_id,
+        c.category,
+        c.description,
+        c.latitude,
+        c.longitude,
+        c.image_url,
+        c.status AS complaint_status,
+        c.created_at,
+        u.name AS citizen_name
+      FROM applications a
+      JOIN micro_tenders mt ON a.tender_id = mt.tender_id
+      JOIN complaints c ON mt.complaint_id = c.complaint_id
+      JOIN users u ON c.user_id = u.user_id
+      WHERE a.vendor_id = ?
+      ORDER BY a.created_at DESC;
+    `, [vendor.vendor_id]);
+    console.log('Applications:', applications);
+    res.json({ applications });
+  } catch (err) {
+    console.error('My applications error:', err);
+    res.status(500).json({ error: 'Failed to get applications.' });
+  }
+});
+
+// GET /api/vendors/complaints/:complaintId
+router.get('/complaints/:complaintId', authenticate, authorize('vendor'), async (req, res) => {
+  try {
+    const vendor = await db.get('SELECT vendor_id FROM vendors WHERE user_id = ?', [req.user.user_id]);
+    if (!vendor) return res.status(404).json({ error: 'Vendor profile not found.' });
+
+    // Ensure the vendor has applied or is assigned
+    const accessCheck = await db.get(`
+      SELECT a.application_id, mt.assigned_vendor_id
+      FROM applications a
+      JOIN micro_tenders mt ON a.tender_id = mt.tender_id
+      WHERE mt.complaint_id = ? AND (a.vendor_id = ? OR mt.assigned_vendor_id = ?)
+    `, [req.params.complaintId, vendor.vendor_id, vendor.vendor_id]);
+
+    if (!accessCheck) {
+      return res.status(403).json({ error: 'Unauthorized access to this complaint.' });
+    }
+
+    const complaint = await db.get(`
+      SELECT c.*, u.name as citizen_name
+      FROM complaints c
+      JOIN users u ON c.user_id = u.user_id
+      WHERE c.complaint_id = ?
+    `, [req.params.complaintId]);
+
+    const tender = await db.get(`
+      SELECT mt.*
+      FROM micro_tenders mt
+      WHERE mt.complaint_id = ?
+    `, [req.params.complaintId]);
+
+    let application = null;
+    let workUpdates = [];
+    let completionProofs = [];
+    let rating = null;
+    if (tender) {
+      application = await db.get(`
+        SELECT * FROM applications WHERE tender_id = ? AND vendor_id = ?
+      `, [tender.tender_id, vendor.vendor_id]);
+
+      workUpdates = await db.all(`
+        SELECT * FROM work_updates WHERE tender_id = ? ORDER BY created_at ASC
+      `, [tender.tender_id]);
+
+      completionProofs = await db.all(`
+        SELECT *
+        FROM completion_proofs
+        WHERE tender_id = ?
+        ORDER BY submitted_at DESC
+      `, [tender.tender_id]);
+
+      rating = await db.get(`
+        SELECT r.score, r.feedback, r.created_at, u.name as citizen_name
+        FROM ratings r
+        JOIN users u ON u.user_id = r.user_id
+        WHERE r.complaint_id = ?
+        ORDER BY r.created_at DESC
+        LIMIT 1
+      `, [req.params.complaintId]);
+    }
+
+    res.json({
+      complaint,
+      tender,
+      application,
+      workUpdates,
+      completionProofs: completionProofs.map((proof) => ({
+        ...proof,
+        image_urls: proof.image_urls ? JSON.parse(proof.image_urls) : [],
+      })),
+      rating,
+    });
+  } catch (err) {
+    console.error('Vendor complaint detail error:', err);
+    res.status(500).json({ error: 'Failed to get complaint details.' });
   }
 });
 

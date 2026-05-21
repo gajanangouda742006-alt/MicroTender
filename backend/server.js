@@ -42,6 +42,7 @@ async function startServer() {
   // Routes
   app.use('/api/auth', require('./routes/auth'));
   app.use('/api/complaints', require('./routes/complaints'));
+  app.use('/api/ratings', require('./routes/ratings'));
   app.use('/api/tenders', require('./routes/tenders'));
   app.use('/api/vendors', require('./routes/vendors'));
   app.use('/api/admin', require('./routes/admin'));

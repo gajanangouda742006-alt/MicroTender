@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import api from '../api';
@@ -9,6 +9,7 @@ import { BarChart3, Users, FileText, AlertTriangle, Shield, DollarSign, Trending
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip, Legend } from 'chart.js';
 import { Bar, Doughnut, Line } from 'react-chartjs-2';
 import MapCluster from '../components/MapCluster';
+import AdminComplaintDetails from './AdminComplaintDetails';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip, Legend);
 
@@ -471,6 +472,7 @@ function ComplaintsMgmt() {
   const [filter, setFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [verifyingTender, setVerifyingTender] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     Promise.all([api.getComplaints(filter ? `status=${filter}` : ''), api.getTenders()])
@@ -514,7 +516,11 @@ function ComplaintsMgmt() {
         <div className="space-y-3">{complaints.map(c => {
           const tender = tenders.find(t => t.complaint_id === c.complaint_id);
           return (
-            <div key={c.complaint_id} className="glass rounded-xl p-4">
+            <div
+              key={c.complaint_id}
+              onClick={() => navigate(`/admin/complaints/${c.complaint_id}`)}
+              className="glass rounded-xl p-4 cursor-pointer transition hover:border-secondary-500/30 hover:shadow-soft"
+            >
               <div className="flex items-start justify-between mb-2">
                 <div className="flex-1"><p className="font-medium text-text-primary">{c.description?.substring(0, 100)}</p>
                   <p className="text-xs text-text-secondary mt-1">#{c.complaint_id} • {c.category.replace('_', ' ')} • {c.citizen_name} • {new Date(c.created_at).toLocaleDateString()}</p></div>
@@ -529,20 +535,20 @@ function ComplaintsMgmt() {
                       <span className={`priority-${tender.priority} px-2 py-0.5 rounded-full text-xs`}>{tender.priority}</span>
                     </div>
                     <div className="flex gap-2">
-                      {tender.status === 'open' && <button onClick={() => handleAutoAssign(tender.tender_id)}
+                      {tender.status === 'open' && <button onClick={(e) => { e.stopPropagation(); handleAutoAssign(tender.tender_id); }}
                         className="px-3 py-1 bg-primary-600 hover:bg-primary-500 rounded-lg text-xs text-white font-medium">Auto-Assign</button>}
                       {['assigned', 'in_progress'].includes(tender.status) && <>
-                        <button onClick={() => handleAction(tender.tender_id, 'complete')} className="px-3 py-1 bg-green-600 rounded-lg text-xs text-white">Complete</button>
-                        <button onClick={() => handleAction(tender.tender_id, 'reassign')} className="px-3 py-1 bg-amber-600 rounded-lg text-xs text-white">Reassign</button>
-                        <button onClick={() => handleAction(tender.tender_id, 'warn_vendor')} className="px-3 py-1 bg-red-600 rounded-lg text-xs text-white">Warn</button>
+                        <button onClick={(e) => { e.stopPropagation(); handleAction(tender.tender_id, 'complete'); }} className="px-3 py-1 bg-green-600 rounded-lg text-xs text-white">Complete</button>
+                        <button onClick={(e) => { e.stopPropagation(); handleAction(tender.tender_id, 'reassign'); }} className="px-3 py-1 bg-amber-600 rounded-lg text-xs text-white">Reassign</button>
+                        <button onClick={(e) => { e.stopPropagation(); handleAction(tender.tender_id, 'warn_vendor'); }} className="px-3 py-1 bg-red-600 rounded-lg text-xs text-white">Warn</button>
                       </>}
                       {tender.status === 'completed' && (
-                        <button onClick={() => setVerifyingTender(tender)} className="px-3 py-1 bg-green-500 rounded-lg text-xs text-white shadow-soft font-bold">
+                        <button onClick={(e) => { e.stopPropagation(); setVerifyingTender(tender); }} className="px-3 py-1 bg-green-500 rounded-lg text-xs text-white shadow-soft font-bold">
                           Verify Completion
                         </button>
                       )}
                       {tender.status !== 'completed' && tender.status !== 'cancelled' && tender.status !== 'closed' &&
-                        <button onClick={() => handleAction(tender.tender_id, 'cancel')} className="btn-secondary px-3 py-1 rounded-lg text-xs hover:bg-surface-secondary transition-all">Cancel</button>}
+                        <button onClick={(e) => { e.stopPropagation(); handleAction(tender.tender_id, 'cancel'); }} className="btn-secondary px-3 py-1 rounded-lg text-xs hover:bg-surface-secondary transition-all">Cancel</button>}
                     </div>
                   </div>
                   {tender.vendor_company && (
@@ -1006,6 +1012,7 @@ export default function AdminDashboard() {
     <Routes>
       <Route index element={<Overview />} />
       <Route path="complaints" element={<ComplaintsMgmt />} />
+      <Route path="complaints/:complaintId" element={<AdminComplaintDetails />} />
       <Route path="vendors" element={<VendorsMgmt />} />
       <Route path="fraud" element={<FraudAlerts />} />
       <Route path="verifications" element={<VerificationsCenter />} />

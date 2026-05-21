@@ -17,7 +17,18 @@ router.get('/', authenticate, async (req, res) => {
       LIMIT 50
     `, [req.user.user_id]);
 
-    res.json({ notifications });
+    res.json({
+      notifications: notifications.map((notification) => ({
+        ...notification,
+        metadata: notification.metadata ? (() => {
+          try {
+            return JSON.parse(notification.metadata);
+          } catch (error) {
+            return null;
+          }
+        })() : null,
+      })),
+    });
   } catch (err) {
     console.error('Get notifications error:', err);
     res.status(500).json({ error: 'Failed to fetch notifications.' });
@@ -65,8 +76,16 @@ const { sendSmartNotification } = require('../services/notificationService');
 /**
  * Utility function to send a notification (Delegates to multi-channel smart service)
  */
-router.sendNotification = async function (app, userId, title, message, type = 'info') {
-  return await sendSmartNotification(app, userId, { title, message, type });
+router.sendNotification = async function (app, userId, titleOrPayload, message, type = 'info') {
+  if (typeof titleOrPayload === 'object' && titleOrPayload !== null) {
+    return await sendSmartNotification(app, userId, titleOrPayload);
+  }
+
+  return await sendSmartNotification(app, userId, {
+    title: titleOrPayload,
+    message,
+    type,
+  });
 };
 
 module.exports = router;

@@ -3,7 +3,7 @@ import { useNotifications } from '../NotificationContext';
 import { Bell, Check, Info, AlertCircle, CheckCircle } from 'lucide-react';
 
 export default function NotificationBell() {
-  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+  const { notifications, unreadCount, openNotification, markAllAsRead } = useNotifications();
   const [isOpen, setIsOpen] = useState(false);
 
   const getTypeIcon = (type) => {
@@ -53,7 +53,7 @@ export default function NotificationBell() {
                 notifications.map(n => (
                   <div 
                     key={n.notification_id}
-                    onClick={() => markAsRead(n.notification_id)}
+                    onClick={() => openNotification(n)}
                     className={`p-4 border-b border-white/5 hover:bg-gradient-secondary/20 hover:neon-glow-purple cursor-pointer transition-colors ${!n.is_read ? 'bg-accent-pink/10' : ''}`}
                   >
                     <div className="flex gap-3">
