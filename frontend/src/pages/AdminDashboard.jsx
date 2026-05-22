@@ -534,22 +534,6 @@ function ComplaintsMgmt() {
                       {tender.manual_cost && <span>Manual: <strong className="text-blue-400">₹{tender.manual_cost}</strong></span>}
                       <span className={`priority-${tender.priority} px-2 py-0.5 rounded-full text-xs`}>{tender.priority}</span>
                     </div>
-                    <div className="flex gap-2">
-                      {tender.status === 'open' && <button onClick={(e) => { e.stopPropagation(); handleAutoAssign(tender.tender_id); }}
-                        className="px-3 py-1 bg-primary-600 hover:bg-primary-500 rounded-lg text-xs text-white font-medium">Auto-Assign</button>}
-                      {['assigned', 'in_progress'].includes(tender.status) && <>
-                        <button onClick={(e) => { e.stopPropagation(); handleAction(tender.tender_id, 'complete'); }} className="px-3 py-1 bg-green-600 rounded-lg text-xs text-white">Complete</button>
-                        <button onClick={(e) => { e.stopPropagation(); handleAction(tender.tender_id, 'reassign'); }} className="px-3 py-1 bg-amber-600 rounded-lg text-xs text-white">Reassign</button>
-                        <button onClick={(e) => { e.stopPropagation(); handleAction(tender.tender_id, 'warn_vendor'); }} className="px-3 py-1 bg-red-600 rounded-lg text-xs text-white">Warn</button>
-                      </>}
-                      {tender.status === 'completed' && (
-                        <button onClick={(e) => { e.stopPropagation(); setVerifyingTender(tender); }} className="px-3 py-1 bg-green-500 rounded-lg text-xs text-white shadow-soft font-bold">
-                          Verify Completion
-                        </button>
-                      )}
-                      {tender.status !== 'completed' && tender.status !== 'cancelled' && tender.status !== 'closed' &&
-                        <button onClick={(e) => { e.stopPropagation(); handleAction(tender.tender_id, 'cancel'); }} className="btn-secondary px-3 py-1 rounded-lg text-xs hover:bg-surface-secondary transition-all">Cancel</button>}
-                    </div>
                   </div>
                   {tender.vendor_company && (
                     <div className="flex items-center justify-between text-xs text-text-tertiary">

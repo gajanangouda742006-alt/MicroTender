@@ -45,44 +45,64 @@ async function submitComplaint(app, userId, data) {
 
   await updateReputation(userId, 'valid_complaint');
 
-    // Fraud Alert Notification
-    if (fraudCheck.warnings && fraudCheck.warnings.length > 0) {
-      // Admin #3
-      await notifyAdmins(app, 'Potential Fraudulent Complaint', `Complaint #${complaintId} by user ${userId} flagged as suspicious.`, 'danger');
-      // Citizen #9
-      await notifications.sendNotification(app, userId, 'Authenticity Verification', 'Your complaint is under authenticity verification.', 'warning');
-    }
+  // Create tender immediately with AI-estimated cost and priority
+  const priority = aiAnalysis.priority || 'Normal';
+  const costEstimation = await estimateCostAI(aiAnalysis.category, description);
+  const estimatedCost = aiAnalysis.estimatedCost || costEstimation.estimatedCost;
 
-    // High Severity Notification
-    const priority = aiAnalysis.priority || 'Normal';
-    if (priority === 'Critical') {
-      // Admin #2
-      await notifyAdmins(app, 'Critical Severity Issue', `Critical civic issue detected near public area (Complaint #${complaintId}).`, 'danger');
-    }
+  const tenderResult = await db.run(
+    'INSERT INTO micro_tenders (complaint_id, estimated_cost, priority) VALUES (?, ?, ?)',
+    [complaintId, estimatedCost, priority]
+  );
 
-    // Citizen #1
+  const tender = await db.get('SELECT * FROM micro_tenders WHERE tender_id = ?', [tenderResult.insertId]);
+
+  // Fraud Alert Notification
+  if (fraudCheck.warnings && fraudCheck.warnings.length > 0) {
+    // Admin #3
+    await notifyAdmins(app, 'Potential Fraudulent Complaint', `Complaint #${complaintId} by user ${userId} flagged as suspicious.`, 'danger');
+    // Citizen #9
+    await notifications.sendNotification(app, userId, 'Authenticity Verification', 'Your complaint is under authenticity verification.', 'warning');
+  }
+
+  // High Severity Notification
+  if (priority === 'Critical') {
+    // Admin #2
+    await notifyAdmins(app, 'Critical Severity Issue', `Critical civic issue detected near public area (Complaint #${complaintId}).`, 'danger');
+  }
+
+  // Citizen #1
+  await notifications.sendNotification(
+    app,
+    userId,
+    'Complaint Submitted',
+    `Complaint submitted successfully. Tracking ID: CMP-${complaintId}`,
+    'success'
+  );
+
+  // Admin #1
+  await notifyAdmins(
+    app,
+    'New Complaint Received',
+    `New complaint submitted requiring review. Tracking ID: CMP-${complaintId}`,
+    'info'
+  );
+
+  // Notify nearby vendors about new tender
+  const nearbyVendors = await findNearbyVendors(lat, lon, aiAnalysis.category, 10);
+  for (const vendor of nearbyVendors) {
     await notifications.sendNotification(
-      app,
-      userId,
-      'Complaint Submitted',
-      `Complaint submitted successfully. Tracking ID: CMP-${complaintId}`,
-      'success'
+      app, vendor.user_id, 'New Tender Available',
+      'New civic tender available in your service area.', 'info'
     );
-
-    // Admin #1
-    await notifyAdmins(
-      app,
-      'New Complaint Received',
-      `New complaint submitted requiring review. Tracking ID: CMP-${complaintId}`,
-      'info'
-    );
-
+  }
 
   return {
     complaint,
     aiAnalysis,
     duplicates: duplicateCheck,
-    fraudWarnings: fraudCheck.warnings
+    fraudWarnings: fraudCheck.warnings,
+    tender
   };
 }
 

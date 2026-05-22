@@ -676,3 +676,285 @@ Complaints found: 2
 Authenticated User: {"user_id":2,"email":"rajesh@gmail.com","role":"citizen","iat":1779388001,"exp":1779391601}
 Complaints found: 2
 👤 User connected: aKnZZySnXDWu1mDvAAAe
+🔌 User disconnected
+🔌 User disconnected
+👤 User connected: ZtJddnX6Wx4us-5DAAAg
+📡 Socket ZtJddnX6Wx4us-5DAAAg joined room: user_2
+👤 User connected: VSlgZBLLOKEoyt41AAAi
+🔌 User disconnected
+🔌 User disconnected
+👤 User connected: pCrefIiHPLuQl8HcAAAk
+📡 Socket pCrefIiHPLuQl8HcAAAk joined room: user_1
+🔌 User disconnected
+👤 User connected: I2N3qKauIarCTvggAAAo
+🔌 User disconnected
+👤 User connected: 2rRoreDSkjq-a2fBAAAq
+📡 Socket 2rRoreDSkjq-a2fBAAAq joined room: user_1
+🔌 User disconnected
+👤 User connected: rktaePh0e4tTcsWNAAAs
+📡 Socket rktaePh0e4tTcsWNAAAs joined room: user_1
+🔌 User disconnected
+👤 User connected: QFqoObGy5-Hju7DSAAAu
+🔌 User disconnected
+👤 User connected: rR7LogldkWhagpIhAAAw
+📡 Socket rR7LogldkWhagpIhAAAw joined room: user_1
+🔌 User disconnected
+👤 User connected: xOo-GeHiWIskdYmQAAAz
+📡 Socket xOo-GeHiWIskdYmQAAAz joined room: user_1
+🔌 User disconnected
+👤 User connected: D16WUcMnHuLpiFreAAA1
+🔌 User disconnected
+👤 User connected: xPLuFdgSICfTzFAUAAA3
+📡 Socket xPLuFdgSICfTzFAUAAA3 joined room: user_1
+🔌 User disconnected
+👤 User connected: IlLZgc5yQBMnW5Q0AAA6
+📡 Socket IlLZgc5yQBMnW5Q0AAA6 joined room: user_1
+🔌 User disconnected
+👤 User connected: 7ZO2Qo0ZYW1FgIRwAAA9
+📡 Socket 7ZO2Qo0ZYW1FgIRwAAA9 joined room: user_1
+🔌 User disconnected
+👤 User connected: mfSfw4OZZPSxKTmnAAA_
+🔌 User disconnected
+👤 User connected: NygdleoHKW_LLpG7AABB
+📡 Socket NygdleoHKW_LLpG7AABB joined room: user_1
+📡 Socket NygdleoHKW_LLpG7AABB joined room: complaint_1
+📡 Socket NygdleoHKW_LLpG7AABB joined room: complaint_1
+📡 Socket NygdleoHKW_LLpG7AABB joined room: complaint_3
+📡 Socket NygdleoHKW_LLpG7AABB joined room: complaint_3
+🔌 User disconnected
+👤 User connected: 97-driliO_Vf4D4KAABD
+📡 Socket 97-driliO_Vf4D4KAABD joined room: user_2
+=== GET /api/complaints/my ===
+Authenticated User: {"user_id":2,"email":"rajesh@gmail.com","role":"citizen","iat":1779390095,"exp":1779393695}
+Complaints found: 2
+=== GET /api/complaints/my ===
+Authenticated User: {"user_id":2,"email":"rajesh@gmail.com","role":"citizen","iat":1779390095,"exp":1779393695}
+Complaints found: 2
+👤 User connected: eJ_r3lxizCI5TReMAABF
+🔌 User disconnected
+=== GET /api/complaints/my ===
+Authenticated User: {"user_id":2,"email":"rajesh@gmail.com","role":"citizen","iat":1779390095,"exp":1779393695}
+Complaints found: 2
+=== GET /api/complaints/my ===
+Authenticated User: {"user_id":2,"email":"rajesh@gmail.com","role":"citizen","iat":1779390095,"exp":1779393695}
+Complaints found: 2
+👤 User connected: lNNp286H6_cGgxeGAABH
+🔌 User disconnected
+🔌 User disconnected
+👤 User connected: preuxhzbc9450Wr_AABJ
+📡 Socket preuxhzbc9450Wr_AABJ joined room: user_6
+Vendor: { vendor_id: 1 }
+Applications: [
+  {
+    application_id: 1,
+    bid_amount: 1900,
+    proposal: 'Can complete pothole repair within 2 days with quality materials.',
+    application_status: 'accepted',
+    tender_id: 1,
+    priority: 'high',
+    tender_status: 'completed',
+    deadline: null,
+    estimated_cost: 2100,
+    complaint_id: 1,
+    category: 'pothole',
+    description: 'Large pothole on main road causing traffic issues and accidents. Approximately 3 meters wide.',
+    latitude: 19.075,
+    longitude: 72.877,
+    image_url: null,
+    complaint_status: 'completed',
+    created_at: 2026-05-21T14:54:37.000Z,
+    citizen_name: 'Rajesh Kumar'
+  },
+  {
+    application_id: 6,
+    bid_amount: 4000,
+    proposal: 'Full road resurfacing with heavy machinery.',
+    application_status: 'pending',
+    tender_id: 5,
+    priority: 'high',
+    tender_status: 'open',
+    deadline: null,
+    estimated_cost: 4500,
+    complaint_id: 5,
+    category: 'road_damage',
+    description: 'Road surface completely damaged after heavy rains. Urgent repair needed.',
+    latitude: 19.068,
+    longitude: 72.868,
+    image_url: null,
+    complaint_status: 'tender_created',
+    created_at: 2026-05-21T14:54:37.000Z,
+    citizen_name: 'Amit Singh'
+  }
+]
+Vendor: { vendor_id: 1 }
+Applications: [
+  {
+    application_id: 1,
+    bid_amount: 1900,
+    proposal: 'Can complete pothole repair within 2 days with quality materials.',
+    application_status: 'accepted',
+    tender_id: 1,
+    priority: 'high',
+    tender_status: 'completed',
+    deadline: null,
+    estimated_cost: 2100,
+    complaint_id: 1,
+    category: 'pothole',
+    description: 'Large pothole on main road causing traffic issues and accidents. Approximately 3 meters wide.',
+    latitude: 19.075,
+    longitude: 72.877,
+    image_url: null,
+    complaint_status: 'completed',
+    created_at: 2026-05-21T14:54:37.000Z,
+    citizen_name: 'Rajesh Kumar'
+  },
+  {
+    application_id: 6,
+    bid_amount: 4000,
+    proposal: 'Full road resurfacing with heavy machinery.',
+    application_status: 'pending',
+    tender_id: 5,
+    priority: 'high',
+    tender_status: 'open',
+    deadline: null,
+    estimated_cost: 4500,
+    complaint_id: 5,
+    category: 'road_damage',
+    description: 'Road surface completely damaged after heavy rains. Urgent repair needed.',
+    latitude: 19.068,
+    longitude: 72.868,
+    image_url: null,
+    complaint_status: 'tender_created',
+    created_at: 2026-05-21T14:54:37.000Z,
+    citizen_name: 'Amit Singh'
+  }
+]
+👤 User connected: AWL9hNkiPEhQOnw8AABM
+🔌 User disconnected
+Vendor: { vendor_id: 1 }
+Applications: [
+  {
+    application_id: 1,
+    bid_amount: 1900,
+    proposal: 'Can complete pothole repair within 2 days with quality materials.',
+    application_status: 'accepted',
+    tender_id: 1,
+    priority: 'high',
+    tender_status: 'completed',
+    deadline: null,
+    estimated_cost: 2100,
+    complaint_id: 1,
+    category: 'pothole',
+    description: 'Large pothole on main road causing traffic issues and accidents. Approximately 3 meters wide.',
+    latitude: 19.075,
+    longitude: 72.877,
+    image_url: null,
+    complaint_status: 'completed',
+    created_at: 2026-05-21T14:54:37.000Z,
+    citizen_name: 'Rajesh Kumar'
+  },
+  {
+    application_id: 6,
+    bid_amount: 4000,
+    proposal: 'Full road resurfacing with heavy machinery.',
+    application_status: 'pending',
+    tender_id: 5,
+    priority: 'high',
+    tender_status: 'open',
+    deadline: null,
+    estimated_cost: 4500,
+    complaint_id: 5,
+    category: 'road_damage',
+    description: 'Road surface completely damaged after heavy rains. Urgent repair needed.',
+    latitude: 19.068,
+    longitude: 72.868,
+    image_url: null,
+    complaint_status: 'tender_created',
+    created_at: 2026-05-21T14:54:37.000Z,
+    citizen_name: 'Amit Singh'
+  }
+]
+Vendor: { vendor_id: 1 }
+Applications: [
+  {
+    application_id: 1,
+    bid_amount: 1900,
+    proposal: 'Can complete pothole repair within 2 days with quality materials.',
+    application_status: 'accepted',
+    tender_id: 1,
+    priority: 'high',
+    tender_status: 'completed',
+    deadline: null,
+    estimated_cost: 2100,
+    complaint_id: 1,
+    category: 'pothole',
+    description: 'Large pothole on main road causing traffic issues and accidents. Approximately 3 meters wide.',
+    latitude: 19.075,
+    longitude: 72.877,
+    image_url: null,
+    complaint_status: 'completed',
+    created_at: 2026-05-21T14:54:37.000Z,
+    citizen_name: 'Rajesh Kumar'
+  },
+  {
+    application_id: 6,
+    bid_amount: 4000,
+    proposal: 'Full road resurfacing with heavy machinery.',
+    application_status: 'pending',
+    tender_id: 5,
+    priority: 'high',
+    tender_status: 'open',
+    deadline: null,
+    estimated_cost: 4500,
+    complaint_id: 5,
+    category: 'road_damage',
+    description: 'Road surface completely damaged after heavy rains. Urgent repair needed.',
+    latitude: 19.068,
+    longitude: 72.868,
+    image_url: null,
+    complaint_status: 'tender_created',
+    created_at: 2026-05-21T14:54:37.000Z,
+    citizen_name: 'Amit Singh'
+  }
+]
+🔌 User disconnected
+👤 User connected: wOYPPFCF4G5L9RIjAABO
+📡 Socket wOYPPFCF4G5L9RIjAABO joined room: user_1
+📡 Socket wOYPPFCF4G5L9RIjAABO joined room: complaint_8
+📡 Socket wOYPPFCF4G5L9RIjAABO joined room: complaint_8
+⚠️ Gemini API key missing, falling back to rule-based estimation.
+📡 [Real-Time Alert] Emitted to user_5 via Socket.IO: "Complaint Approved"
+✉️  Ethereal SMTP fallback initialized: tkgzjiybhsoacc5w@ethereal.email
+✉️ [Email Alert Log] Email successfully sent to sneha@gmail.com (Id: <048fc848-48cb-cb0c-4de4-885bff34a2db@microtender.gov>)
+🔥 [Firebase Push Notification SDK] sending message payload...
+   └─ TOKEN: "fcm_token_user_5_mocked_hash"
+   └─ TITLE: "Complaint Approved"
+   └─ BODY:  "Your complaint has been approved and tender created...."
+   └─ STATUS: Push Dispatched Successfully
+💬 [SMS Alert Dispatched via Mock API Gateway]
+   └─ TO:    "9876543213"
+   └─ MSG:   "MicroTender Notification: Complaint Approved - Your complaint has been approved and tender create..."
+   └─ STATUS: Delivered (Carrier ID: 200)
+📡 [Real-Time Alert] Emitted to user_6 via Socket.IO: "New Tender Available"
+✉️ [Email Alert Log] Email successfully sent to vikram@vendor.com (Id: <181ba4c6-09dc-587b-2df3-8c246634c196@microtender.gov>)
+🔥 [Firebase Push Notification SDK] sending message payload...
+   └─ TOKEN: "fcm_token_user_6_mocked_hash"
+   └─ TITLE: "New Tender Available"
+   └─ BODY:  "New civic tender available in your service area...."
+   └─ STATUS: Push Dispatched Successfully
+💬 [SMS Alert Dispatched via Mock API Gateway]
+   └─ TO:    "9888800001"
+   └─ MSG:   "MicroTender Notification: New Tender Available - New civic tender available in your service area...."
+   └─ STATUS: Delivered (Carrier ID: 200)
+📡 [Real-Time Alert] Emitted to user_10 via Socket.IO: "New Tender Available"
+✉️ [Email Alert Log] Email successfully sent to road@vendor.com (Id: <0bb1ebd8-10fe-bfef-8078-4d67293513a7@microtender.gov>)
+🔥 [Firebase Push Notification SDK] sending message payload...
+   └─ TOKEN: "fcm_token_user_10_mocked_hash"
+   └─ TITLE: "New Tender Available"
+   └─ BODY:  "New civic tender available in your service area...."
+   └─ STATUS: Push Dispatched Successfully
+💬 [SMS Alert Dispatched via Mock API Gateway]
+   └─ TO:    "9888800005"
+   └─ MSG:   "MicroTender Notification: New Tender Available - New civic tender available in your service area...."
+   └─ STATUS: Delivered (Carrier ID: 200)
+🔌 User disconnected

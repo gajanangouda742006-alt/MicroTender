@@ -158,12 +158,14 @@ export default function AdminComplaintDetails() {
   const workUpdates = data?.workUpdates || [];
   const aiAnalysis = useMemo(() => safeParse(complaint?.ai_analysis), [complaint?.ai_analysis]);
 
-  const latestProgress = data?.latestWorkUpdate?.progress_percentage
-    ?? latestCompletionProof?.progress_snapshot
-    ?? (complaint?.status === 'completed' ? 100 : 0);
+  const isAssigned = !!assignedVendor;
+  const isOpen = complaint?.status === 'open';
+  const showAI = !isAssigned && isOpen;
+  const hasProof = !!(latestCompletionProof?.cover_image_url && latestCompletionProof?.status && latestCompletionProof?.status !== 'pending');
 
   const progressImages = workUpdates.filter((update) => update.image_url).map((update) => update.image_url);
   const completionImages = latestCompletionProof?.image_urls || [];
+  const latestProgress = workUpdates.length > 0 ? (workUpdates[workUpdates.length - 1].progress_percentage ?? 0) : 0;
 
   const runAction = async (label, fn) => {
     try {
@@ -396,7 +398,7 @@ export default function AdminComplaintDetails() {
               <ImageIcon size={18} className="text-secondary-500" />
               <h3 className="text-lg font-black text-text-primary">Before and After Work Images</h3>
             </div>
-            {latestCompletionProof?.cover_image_url ? (
+                        {hasProof ? (
               <BeforeAfterSlider
                 beforeImage={getAssetUrl(complaint.image_url)}
                 afterImage={getAssetUrl(latestCompletionProof.cover_image_url)}
@@ -406,7 +408,7 @@ export default function AdminComplaintDetails() {
               />
             ) : (
               <div className="rounded-3xl border border-dashed border-border-primary p-10 text-center text-text-tertiary">
-                Final completion images will appear here after the vendor uploads proof.
+                Final completion images will appear here after the vendor uploads proof and admin verification.
               </div>
             )}
             <div className="mt-6 grid gap-6 lg:grid-cols-2">
@@ -456,82 +458,84 @@ export default function AdminComplaintDetails() {
             )}
           </section>
 
-          <section id="recommended-vendors" className="glass-card border border-border-primary p-7">
-            <div className="mb-6 flex items-center gap-3">
-              <Users2 size={18} className="text-secondary-500" />
-              <h3 className="text-lg font-black text-text-primary">AI Recommended Vendors</h3>
-            </div>
-
-            {data?.recommendedVendors?.length ? (
-              <div className="grid gap-4 lg:grid-cols-2">
-                {data.recommendedVendors.map((vendor, index) => {
-                  const isAssigned = tender?.assigned_vendor_id === vendor.vendor_id;
-                  return (
-                    <motion.div
-                      key={vendor.vendor_id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.06 }}
-                      className="rounded-3xl border border-border-primary bg-surface-primary/70 p-5"
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <p className="text-lg font-black text-text-primary">{vendor.company_name || vendor.vendor_name}</p>
-                          <p className="mt-1 text-sm text-text-secondary">{vendor.contact_name || vendor.vendor_name}</p>
-                        </div>
-                        <span className="rounded-full border border-secondary-500/25 bg-secondary-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.22em] text-secondary-400">
-                          AI score {vendor.ai_score}
-                        </span>
-                      </div>
-
-                      <div className="mt-4 flex items-center gap-3">
-                        <Stars value={vendor.rating_avg} />
-                        <span className="text-sm font-semibold text-text-secondary">{Number(vendor.rating_avg || 0).toFixed(1)} rating</span>
-                      </div>
-
-                      <div className="mt-4 grid grid-cols-2 gap-3 text-sm text-text-secondary">
-                        <div className="rounded-2xl border border-border-primary bg-bg-secondary/60 p-3">
-                          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-text-tertiary">Experience</p>
-                          <p className="mt-2 font-bold text-text-primary">{vendor.experience_years || 0} years</p>
-                        </div>
-                        <div className="rounded-2xl border border-border-primary bg-bg-secondary/60 p-3">
-                          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-text-tertiary">Distance</p>
-                          <p className="mt-2 font-bold text-text-primary">{vendor.distance_km == null ? 'Unknown' : `${vendor.distance_km} km`}</p>
-                        </div>
-                        <div className="rounded-2xl border border-border-primary bg-bg-secondary/60 p-3">
-                          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-text-tertiary">Completed Works</p>
-                          <p className="mt-2 font-bold text-text-primary">{vendor.total_jobs_completed || 0}</p>
-                        </div>
-                        <div className="rounded-2xl border border-border-primary bg-bg-secondary/60 p-3">
-                          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-text-tertiary">Bid Amount</p>
-                          <p className="mt-2 font-bold text-text-primary">Rs {Math.round(vendor.bid_amount || 0).toLocaleString()}</p>
-                        </div>
-                      </div>
-
-                      <p className="mt-4 text-sm text-text-secondary">{vendor.recommendation_reason}</p>
-
-                      <div className="mt-5 flex items-center justify-between gap-3">
-                        <span className="text-xs text-text-tertiary">
-                          Bid success rate: {Math.round(Number(vendor.bid_success_rate || 0) * 100)}%
-                        </span>
-                        <button
-                          onClick={() => handleManualAssign(vendor.vendor_id)}
-                          disabled={!tender?.tender_id || actionLoading === `assign-${vendor.vendor_id}` || isAssigned}
-                          className="rounded-2xl bg-secondary-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-secondary-500 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {isAssigned ? 'Assigned' : actionLoading === `assign-${vendor.vendor_id}` ? 'Assigning...' : 'Assign Vendor'}
-                        </button>
-                      </div>
-                    </motion.div>
-                  );
-                })}
+                      {showAI && (
+            <section id="recommended-vendors" className="glass-card border border-border-primary p-7">
+              <div className="mb-6 flex items-center gap-3">
+                <Users2 size={18} className="text-secondary-500" />
+                <h3 className="text-lg font-black text-text-primary">AI Recommended Vendors</h3>
               </div>
-            ) : (
-              <div className="rounded-3xl border border-dashed border-border-primary p-10 text-center text-text-tertiary">
-                No recommended vendors yet. Create the tender first or wait for applications.
-              </div>
+
+              {data?.recommendedVendors?.length ? (
+                <div className="grid gap-4 lg:grid-cols-2">
+                  {data.recommendedVendors.map((vendor, index) => {
+                    const isAssigned = tender?.assigned_vendor_id === vendor.vendor_id;
+                    return (
+                      <motion.div
+                        key={vendor.vendor_id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.06 }}
+                        className="rounded-3xl border border-border-primary bg-surface-primary/70 p-5"
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <p className="text-lg font-black text-text-primary">{vendor.company_name || vendor.vendor_name}</p>
+                            <p className="mt-1 text-sm text-text-secondary">{vendor.contact_name || vendor.vendor_name}</p>
+                          </div>
+                          <span className="rounded-full border border-secondary-500/25 bg-secondary-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.22em] text-secondary-400">
+                            AI score {vendor.ai_score}
+                          </span>
+                        </div>
+
+                        <div className="mt-4 flex items-center gap-3">
+                          <Stars value={vendor.rating_avg} />
+                          <span className="text-sm font-semibold text-text-secondary">{Number(vendor.rating_avg || 0).toFixed(1)} rating</span>
+                        </div>
+
+                        <div className="mt-4 grid grid-cols-2 gap-3 text-sm text-text-secondary">
+                          <div className="rounded-2xl border border-border-primary bg-bg-secondary/60 p-3">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-text-tertiary">Experience</p>
+                            <p className="mt-2 font-bold text-text-primary">{vendor.experience_years || 0} years</p>
+                          </div>
+                          <div className="rounded-2xl border border-border-primary bg-bg-secondary/60 p-3">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-text-tertiary">Distance</p>
+                            <p className="mt-2 font-bold text-text-primary">{vendor.distance_km == null ? 'Unknown' : `${vendor.distance_km} km`}</p>
+                          </div>
+                          <div className="rounded-2xl border border-border-primary bg-bg-secondary/60 p-3">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-text-tertiary">Completed Works</p>
+                            <p className="mt-2 font-bold text-text-primary">{vendor.total_jobs_completed || 0}</p>
+                          </div>
+                          <div className="rounded-2xl border border-border-primary bg-bg-secondary/60 p-3">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-text-tertiary">Bid Amount</p>
+                            <p className="mt-2 font-bold text-text-primary">Rs {Math.round(vendor.bid_amount || 0).toLocaleString()}</p>
+                          </div>
+                        </div>
+
+                        <p className="mt-4 text-sm text-text-secondary">{vendor.recommendation_reason}</p>
+
+                        <div className="mt-5 flex items-center justify-between gap-3">
+                          <span className="text-xs text-text-tertiary">
+                            Bid success rate: {Math.round(Number(vendor.bid_success_rate || 0) * 100)}%
+                          </span>
+                          <button
+                            onClick={() => handleManualAssign(vendor.vendor_id)}
+                            disabled={!tender?.tender_id || actionLoading === `assign-${vendor.vendor_id}` || isAssigned}
+                            className="rounded-2xl bg-secondary-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-secondary-500 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {isAssigned ? 'Assigned' : actionLoading === `assign-${vendor.vendor_id}` ? 'Assigning...' : 'Assign Vendor'}
+                          </button>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="rounded-3xl border border-dashed border-border-primary p-10 text-center text-text-tertiary">
+                  No recommended vendors yet. Create the tender first or wait for applications.
+                </div>
+              )}
+            </section>
             )}
-          </section>
 
           {data?.rating ? (
             <section className="glass-card border border-border-primary p-7">
@@ -561,38 +565,42 @@ export default function AdminComplaintDetails() {
             </div>
 
             <div className="space-y-3">
-              {!tender ? (
-                <button
-                  onClick={handleCreateTender}
-                  disabled={actionLoading === 'create'}
-                  className="w-full rounded-2xl bg-secondary-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-secondary-500 disabled:opacity-60"
-                >
-                  {actionLoading === 'create' ? 'Creating...' : 'Create Tender'}
-                </button>
-              ) : (
-                <>
+                           {!tender ? (
                   <button
-                    onClick={handleAutoAssign}
-                    disabled={actionLoading === 'auto'}
+                    onClick={handleCreateTender}
+                    disabled={actionLoading === 'create'}
                     className="w-full rounded-2xl bg-secondary-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-secondary-500 disabled:opacity-60"
                   >
-                    {actionLoading === 'auto' ? 'Auto assigning...' : 'Auto Assign'}
+                    {actionLoading === 'create' ? 'Creating...' : 'Create Tender'}
                   </button>
-                  <button
-                    onClick={() => document.getElementById('recommended-vendors')?.scrollIntoView({ behavior: 'smooth' })}
-                    className="w-full rounded-2xl border border-border-primary bg-surface-primary/70 px-4 py-3 text-sm font-bold text-text-primary transition hover:border-secondary-500/35"
-                  >
-                    Manual Assign
-                  </button>
-                  <button
-                    onClick={handleCancelTender}
-                    disabled={actionLoading === 'cancel'}
-                    className="w-full rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm font-bold text-rose-400 transition hover:bg-rose-500/15 disabled:opacity-60"
-                  >
-                    {actionLoading === 'cancel' ? 'Cancelling...' : 'Cancel Tender'}
-                  </button>
-                </>
-              )}
+                ) : (
+                  <>
+                    {isAssigned ? null : (
+                      <>
+                        <button
+                          onClick={handleAutoAssign}
+                          disabled={actionLoading === 'auto'}
+                          className="w-full rounded-2xl bg-secondary-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-secondary-500 disabled:opacity-60"
+                        >
+                          {actionLoading === 'auto' ? 'Auto assigning...' : 'Auto Assign'}
+                        </button>
+                        <button
+                          onClick={() => document.getElementById('recommended-vendors')?.scrollIntoView({ behavior: 'smooth' })}
+                          className="w-full rounded-2xl border border-border-primary bg-surface-primary/70 px-4 py-3 text-sm font-bold text-text-primary transition hover:border-secondary-500/35"
+                        >
+                          Manual Assign
+                        </button>
+                        <button
+                          onClick={handleCancelTender}
+                          disabled={actionLoading === 'cancel'}
+                          className="w-full rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm font-bold text-rose-400 transition hover:bg-rose-500/15 disabled:opacity-60"
+                        >
+                          {actionLoading === 'cancel' ? 'Cancelling...' : 'Cancel Tender'}
+                        </button>
+                      </>
+                    )}
+                  </>
+                )}
             </div>
 
             {assignedVendor ? (

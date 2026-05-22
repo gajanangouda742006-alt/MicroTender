@@ -43,7 +43,8 @@ router.post('/', authenticate, authorize('citizen'), upload.single('image'), asy
       complaint: result.complaint,
       aiAnalysis: result.aiAnalysis,
       duplicates: result.duplicates,
-      fraudWarnings: result.fraudWarnings
+      fraudWarnings: result.fraudWarnings,
+      tender: result.tender
     });
   } catch (err) {
     console.error('Complaint error:', err);
