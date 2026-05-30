@@ -265,22 +265,18 @@ db.initDatabase = async function () {
     )
   `);
 
-  try {
-    await pool.execute(`ALTER TABLE work_updates ADD COLUMN verification_status VARCHAR(50) DEFAULT 'verified'`);
-    await pool.execute(`ALTER TABLE work_updates ADD COLUMN verification_reasoning TEXT`);
-    try { await pool.execute(`ALTER TABLE work_updates ADD COLUMN update_type VARCHAR(50) DEFAULT 'progress'`); } catch (e) {}
-    try { await pool.execute('ALTER TABLE micro_tenders ADD COLUMN completion_image VARCHAR(255)'); } catch (e) {}
-    try { await pool.execute('ALTER TABLE micro_tenders ADD COLUMN completion_note TEXT'); } catch (e) {}
-    try { await pool.execute('ALTER TABLE micro_tenders ADD COLUMN completed_at TIMESTAMP NULL'); } catch (e) {}
-    try { await pool.execute("ALTER TABLE micro_tenders ADD COLUMN verification_status VARCHAR(50) DEFAULT 'pending'"); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE work_updates ADD COLUMN verification_status VARCHAR(50) DEFAULT 'verified'`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE work_updates ADD COLUMN verification_reasoning TEXT`); } catch (e) {}
+  try { await pool.execute(`ALTER TABLE work_updates ADD COLUMN update_type VARCHAR(50) DEFAULT 'progress'`); } catch (e) {}
+  try { await pool.execute('ALTER TABLE micro_tenders ADD COLUMN completion_image VARCHAR(255)'); } catch (e) {}
+  try { await pool.execute('ALTER TABLE micro_tenders ADD COLUMN completion_note TEXT'); } catch (e) {}
+  try { await pool.execute('ALTER TABLE micro_tenders ADD COLUMN completed_at TIMESTAMP NULL'); } catch (e) {}
+  try { await pool.execute("ALTER TABLE micro_tenders ADD COLUMN verification_status VARCHAR(50) DEFAULT 'pending'"); } catch (e) {}
 
-    try {
-      await pool.execute("ALTER TABLE micro_tenders MODIFY COLUMN status ENUM('open', 'bidding', 'assigned', 'in_progress', 'completed', 'verified', 'closed', 'cancelled') DEFAULT 'open'");
-    } catch (e) {
-      console.log('Ignore enum modify error in mysql if syntax differs', e.message);
-    }
+  try {
+    await pool.execute("ALTER TABLE micro_tenders MODIFY COLUMN status ENUM('open', 'bidding', 'assigned', 'in_progress', 'completed', 'verified', 'closed', 'cancelled') DEFAULT 'open'");
   } catch (e) {
-    // Ignore if columns already exist
+    console.log('Ignore enum modify error in mysql if syntax differs', e.message);
   }
 
   // Migrate users table columns if they do not exist

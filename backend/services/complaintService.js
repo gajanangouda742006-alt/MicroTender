@@ -51,7 +51,7 @@ async function submitComplaint(app, userId, data) {
   const estimatedCost = aiAnalysis.estimatedCost || costEstimation.estimatedCost;
 
   const tenderResult = await db.run(
-    'INSERT INTO micro_tenders (complaint_id, estimated_cost, priority) VALUES (?, ?, ?)',
+    "INSERT INTO micro_tenders (complaint_id, estimated_cost, priority, status) VALUES (?, ?, ?, 'bidding')",
     [complaintId, estimatedCost, priority]
   );
 
@@ -88,15 +88,6 @@ async function submitComplaint(app, userId, data) {
     'info'
   );
 
-  // Notify nearby vendors about new tender
-  const nearbyVendors = await findNearbyVendors(lat, lon, aiAnalysis.category, 10);
-  for (const vendor of nearbyVendors) {
-    await notifications.sendNotification(
-      app, vendor.user_id, 'New Tender Available',
-      'New civic tender available in your service area.', 'info'
-    );
-  }
-
   return {
     complaint,
     aiAnalysis,
@@ -117,12 +108,21 @@ async function approveComplaint(app, complaintId) {
   const priority = aiAnalysis.priority || determinePriority(complaint.category, complaint.description);
   const estimatedCost = aiAnalysis.estimatedCost || (await estimateCostAI(complaint.category, complaint.description)).estimatedCost;
 
-  await db.run(
-    'INSERT INTO micro_tenders (complaint_id, estimated_cost, priority) VALUES (?, ?, ?)',
-    [complaint.complaint_id, estimatedCost, priority]
-  );
+  const existingTender = await db.get('SELECT * FROM micro_tenders WHERE complaint_id = ?', [complaint.complaint_id]);
+  if (existingTender) {
+    await db.run(`
+      UPDATE micro_tenders
+      SET estimated_cost = ?, priority = ?, status = 'open'
+      WHERE tender_id = ?
+    `, [estimatedCost, priority, existingTender.tender_id]);
+  } else {
+    await db.run(
+      'INSERT INTO micro_tenders (complaint_id, estimated_cost, priority) VALUES (?, ?, ?)',
+      [complaint.complaint_id, estimatedCost, priority]
+    );
+  }
 
-  await db.run("UPDATE complaints SET status = 'tender_created' WHERE complaint_id = ?", [complaint.complaint_id]);
+  await db.run("UPDATE complaints SET status = 'tender_created', updated_at = NOW() WHERE complaint_id = ?", [complaint.complaint_id]);
 
   const tender = await db.get('SELECT * FROM micro_tenders WHERE complaint_id = ?', [complaint.complaint_id]);
 

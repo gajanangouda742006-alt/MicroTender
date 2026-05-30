@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MicroTender DBMS Poster</title>
+    <link rel="stylesheet" href="./poster.css" />
+  </head>
+  <body>
+    <main class="poster">
+      <header class="hero">
+        <div class="hero-top">DEPARTMENT OF COMPUTER SCIENCE AND ENGINEERING</div>
+        <div class="hero-body">
+          <div class="hero-mark">
+            <div class="mark-circle">DB</div>
+            <div class="mark-lines">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          </div>
+          <div class="hero-copy">
+            <p class="eyebrow">DBMS MINI PROJECT</p>
+            <h1>MICROTENDER</h1>
+            <h2>AI-Augmented Civic Issue and Micro-Tender Management System</h2>
+            <p class="tagline">
+              A full-stack platform that converts citizen complaints into trackable
+              micro-tenders, connects verified local vendors, and improves civic issue
+              resolution using structured database design.
+            </p>
+          </div>
+          <div class="hero-badge">
+            <span>MYSQL</span>
+            <span>REACT</span>
+            <span>EXPRESS</span>
+          </div>
+        </div>
+      </header>
+
+      <section class="meta-strip">
+        <article class="meta-card">
+          <h3>Team Members</h3>
+          <p>ADITHYA S	4PM24CS003</p>
+          <p>DAYANANDA K S	4PM24CS032</p>
+          <p>GAJANAN GOVIND GOWDA	4PM24CS045</p>
+          <p>GLANSON D' SOUZA	4PM24CS047</p>
+        </article>
+        <article class="meta-card">
+          <h3>Faculty Guide</h3>
+          <p>Raghavendra K</p>
+          <p>Department of CSE</p>
+        </article>
+        <article class="meta-card">
+          <h3>Institution</h3>
+          <p>PESITM Institute of Technology and Management</p>
+          <p>Academic Year 2025-26</p>
+        </article>
+        <article class="meta-card">
+          <h3>Project Type</h3>
+          <p>DBMS Mini Project</p>
+          <p>Web Application + MySQL Database</p>
+        </article>
+      </section>
+
+      <section class="poster-grid">
+        <article class="panel accent-pink">
+          <div class="panel-head">1. Abstract</div>
+          <div class="panel-body">
+            <p>
+              MicroTender is a smart civic-maintenance platform where citizens report
+              public issues, administrators review and approve them, and local vendors
+              submit bids to resolve them. The system integrates complaint registration,
+              tender generation, vendor assignment, progress tracking, notifications,
+              anti-fraud checks, and citizen ratings in one normalized relational
+              database application.
+            </p>
+          </div>
+        </article>
+
+        <article class="panel accent-purple">
+          <div class="panel-head">2. Problem Statement</div>
+          <div class="panel-body">
+            <ul class="clean-list">
+              <li>Manual civic complaint handling is slow and difficult to monitor.</li>
+              <li>There is limited transparency between citizen, authority, and vendor.</li>
+              <li>Bidding, assignment, and work verification are often fragmented.</li>
+              <li>A DBMS-backed workflow is needed for traceability, integrity, and analytics.</li>
+            </ul>
+          </div>
+        </article>
+
+        <article class="panel accent-green">
+          <div class="panel-head">3. Objectives</div>
+          <div class="panel-body">
+            <ul class="clean-list">
+              <li>Design a normalized database for complaints, tenders, vendors, bids, and ratings.</li>
+              <li>Automate complaint-to-tender conversion with structured workflow states.</li>
+              <li>Track work updates, notifications, and completion verification in real time.</li>
+              <li>Provide secure, role-based access for citizen, vendor, and admin users.</li>
+            </ul>
+          </div>
+        </article>
+
+        <article class="panel accent-blue span-2">
+          <div class="panel-head">4. System Architecture</div>
+          <div class="panel-body">
+            <div class="architecture">
+              <div class="arch-card">
+                <h4>Frontend Layer</h4>
+                <p>React + Vite + Tailwind CSS</p>
+                <p>Citizen, Vendor, and Admin dashboards</p>
+              </div>
+              <div class="arch-arrow">→</div>
+              <div class="arch-card">
+                <h4>Application Layer</h4>
+                <p>Node.js + Express + Socket.IO</p>
+                <p>REST APIs, auth, workflows, notifications</p>
+              </div>
+              <div class="arch-arrow">→</div>
+              <div class="arch-card">
+                <h4>Data Layer</h4>
+                <p>MySQL relational database</p>
+                <p>Constraints, foreign keys, indexing, audit data</p>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel accent-orange">
+          <div class="panel-head">5. Key Features</div>
+          <div class="panel-body">
+            <div class="feature-grid">
+              <div class="feature-box">
+                <h4>Citizen Complaint Filing</h4>
+                <p>Complaint form with category, description, map location, and evidence image.</p>
+              </div>
+              <div class="feature-box">
+                <h4>Micro-Tender Workflow</h4>
+                <p>Complaints move through review, approval, bidding, assignment, work, and closure.</p>
+              </div>
+              <div class="feature-box">
+                <h4>Vendor Bidding & Assignment</h4>
+                <p>Nearby vendors apply with bids, admins assign winners, and jobs become trackable.</p>
+              </div>
+              <div class="feature-box">
+                <h4>Notifications & Ratings</h4>
+                <p>Role-wise alerts, work updates, completion review, and citizen feedback.</p>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel accent-teal span-2">
+          <div class="panel-head">6. Workflow Lifecycle</div>
+          <div class="panel-body">
+            <div class="timeline">
+              <div class="step">Citizen submits complaint</div>
+              <div class="step">System stores complaint + provisional tender</div>
+              <div class="step">Admin reviews and approves tender</div>
+              <div class="step">Nearby vendors view and bid</div>
+              <div class="step">Admin assigns selected vendor</div>
+              <div class="step">Vendor posts progress updates</div>
+              <div class="step">Admin verifies completion</div>
+              <div class="step">Citizen rates completed work</div>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel accent-purple span-3">
+          <div class="panel-head">7. ER Diagram and Database Design</div>
+          <div class="panel-body">
+            <div class="erd-wrap">
+              <img src="./assets/ERdiagramofdbms.png" alt="MicroTender ER Diagram" class="erd-image" />
+            </div>
+            <div class="two-col-notes">
+              <div>
+                <h4>Core Entities</h4>
+                <p>
+                  Users, Complaints, Micro_Tenders, Vendors, Applications, Work_Updates,
+                  Ratings, Notifications, and Fraud_Logs form the main schema.
+                </p>
+              </div>
+              <div>
+                <h4>Relationship Logic</h4>
+                <p>
+                  A user files complaints, complaints generate tenders, vendors submit
+                  applications, tenders receive work updates, and verified work later
+                  receives ratings and notifications.
+                </p>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel accent-green">
+          <div class="panel-head">8. DBMS Highlights</div>
+          <div class="panel-body">
+            <ul class="clean-list">
+              <li>Primary keys for every core entity</li>
+              <li>Foreign-key relationships with referential integrity</li>
+              <li>Unique constraints for email and rating duplication control</li>
+              <li>Status-driven lifecycle backed by relational tables</li>
+              <li>Indexes on complaints, tenders, vendors, and notifications</li>
+            </ul>
+          </div>
+        </article>
+
+        <article class="panel accent-pink">
+          <div class="panel-head">9. Normalization</div>
+          <div class="panel-body">
+            <ul class="clean-list">
+              <li><strong>1NF:</strong> Atomic attributes for users, complaints, bids, and ratings</li>
+              <li><strong>2NF:</strong> Non-key data depends on full primary keys</li>
+              <li><strong>3NF:</strong> Repeated business facts are separated into linked tables</li>
+              <li>The schema reduces redundancy and supports scalable query design</li>
+            </ul>
+          </div>
+        </article>
+
+        <article class="panel accent-blue">
+          <div class="panel-head">10. Technology Stack</div>
+          <div class="panel-body">
+            <div class="stack-group">
+              <span class="stack-chip">React 18</span>
+              <span class="stack-chip">Vite 6</span>
+              <span class="stack-chip">Tailwind CSS</span>
+              <span class="stack-chip">Node.js</span>
+              <span class="stack-chip">Express</span>
+              <span class="stack-chip">Socket.IO</span>
+              <span class="stack-chip">MySQL</span>
+              <span class="stack-chip">JWT Auth</span>
+              <span class="stack-chip">Multer Uploads</span>
+              <span class="stack-chip">Gemini + Rule Logic</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel accent-orange span-2">
+          <div class="panel-head">11. Interface Snapshots (Poster Mockup)</div>
+          <div class="panel-body">
+            <div class="mockup-grid">
+              <div class="mock-screen">
+                <div class="mock-title">Citizen Dashboard</div>
+                <div class="mock-bar"></div>
+                <div class="mock-card-row">
+                  <span></span><span></span><span></span>
+                </div>
+                <div class="mock-feed">
+                  <div></div>
+                  <div></div>
+                  <div></div>
+                </div>
+              </div>
+              <div class="mock-screen">
+                <div class="mock-title">Vendor Panel</div>
+                <div class="mock-list">
+                  <div></div>
+                  <div></div>
+                  <div></div>
+                  <div></div>
+                </div>
+              </div>
+              <div class="mock-screen">
+                <div class="mock-title">Admin Analytics</div>
+                <div class="mock-chart">
+                  <span></span><span></span><span></span><span></span>
+                </div>
+                <div class="mock-pie"></div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel accent-teal">
+          <div class="panel-head">12. Security Features</div>
+          <div class="panel-body">
+            <ul class="clean-list">
+              <li>JWT-based login and role authorization</li>
+              <li>Password hashing using bcrypt</li>
+              <li>Input validation and file-type restrictions</li>
+              <li>Fraud logging, reputation scoring, and audit-friendly workflow tables</li>
+            </ul>
+          </div>
+        </article>
+
+        <article class="panel accent-purple span-2">
+          <div class="panel-head">13. Testing and Validation</div>
+          <div class="panel-body">
+            <div class="stats-grid">
+              <div class="stat">
+                <strong>15 / 15</strong>
+                <span>runtime smoke checks passed</span>
+              </div>
+              <div class="stat">
+                <strong>MySQL</strong>
+                <span>backend database connection verified</span>
+              </div>
+              <div class="stat">
+                <strong>Build OK</strong>
+                <span>frontend production bundle compiled successfully</span>
+              </div>
+              <div class="stat">
+                <strong>3 Roles</strong>
+                <span>citizen, vendor, and admin flows tested</span>
+              </div>
+            </div>
+            <div class="result-notes">
+              <p>
+                Verified flows include login, complaint submission, approval,
+                vendor bidding, vendor assignment, work updates, admin verification feed,
+                notification read flow, and citizen complaint detail tracking.
+              </p>
+              <p>
+                Note: the AI route currently falls back when Gemini API credentials are invalid,
+                but the DBMS workflow remains functional.
+              </p>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel accent-green">
+          <div class="panel-head">14. Outcomes</div>
+          <div class="panel-body">
+            <ul class="clean-list">
+              <li>Improves civic issue transparency and accountability</li>
+              <li>Creates a traceable tendering workflow over a structured database</li>
+              <li>Supports reporting, ratings, and future analytics extensions</li>
+              <li>Demonstrates practical DBMS design with a real full-stack application</li>
+            </ul>
+          </div>
+        </article>
+
+        <article class="panel accent-blue span-3">
+          <div class="panel-head">15. Future Scope</div>
+          <div class="panel-body future-grid">
+            <div class="future-item">Native mobile app for citizens and field vendors</div>
+            <div class="future-item">Live GIS mapping and zone-wise analytics dashboard</div>
+            <div class="future-item">True AI image verification and severity prediction with valid API integration</div>
+            <div class="future-item">Payment gateway, e-sign approval, and municipal ERP integration</div>
+          </div>
+        </article>
+      </section>
+
+      <footer class="footer-note">
+        <div>
+          <strong>Poster Editing Tip:</strong> Replace placeholder names in the top cards,
+          add your logo if needed, and export this page as PDF from the browser for print.
+        </div>
+        <div class="footer-mini">
+          MicroTender DBMS Poster • Relational Database + Full-Stack Application
+        </div>
+      </footer>
+    </main>
+  </body>
+</html>
